@@ -1,28 +1,84 @@
-import { useState } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useState } from 'react';
+import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { router } from 'expo-router';
+import * as DocumentPicker from 'expo-document-picker';
+import { uploadDeed } from '@/services/api';
 
-export default function PdfUploadScreen() {
-  const [selectedPdf, setSelectedPdf] = useState<null | unknown>(null);
+export default function UploadScreen() {
+  const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const handlePickDocument = async () => {
+    const result = await DocumentPicker.getDocumentAsync({
+      type: 'application/pdf',
+      copyToCacheDirectory: true,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      setSelectedFile(result.assets[0]);
+    }
+  };
+
+  const handleAnalyze = async () => {
+    if (!selectedFile) return;
+    setUploading(true);
+    try {
+      const jobId = await uploadDeed(
+        selectedFile.uri,
+        selectedFile.name,
+        selectedFile.mimeType ?? 'application/pdf',
+      );
+      router.replace(`/result/${jobId}`);
+    } catch (error) {
+      Alert.alert('오류', error instanceof Error ? error.message : '업로드에 실패했습니다.');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      {/* 중앙 영역 */}
-      <View style={styles.center}>
-        <TouchableOpacity style={styles.uploadButton}>
-          <Text style={styles.uploadText}>PDF 업로드</Text>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backText}>← 뒤로</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>등기부등본 분석</Text>
+        <View style={styles.backButton} />
+      </View>
+
+      <View style={styles.content}>
+        <TouchableOpacity
+          style={[styles.pickArea, selectedFile && styles.pickAreaSelected]}
+          onPress={handlePickDocument}
+        >
+          {selectedFile ? (
+            <>
+              <Text style={styles.fileIcon}>📄</Text>
+              <Text style={styles.fileName} numberOfLines={2}>{selectedFile.name}</Text>
+              <Text style={styles.fileHint}>탭하여 다시 선택</Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.fileIcon}>📁</Text>
+              <Text style={styles.pickTitle}>PDF 파일 선택</Text>
+              <Text style={styles.pickHint}>등기부등본 PDF를 선택하세요</Text>
+            </>
+          )}
         </TouchableOpacity>
       </View>
 
-      {/* 하단 영역 */}
-      <TouchableOpacity
-        style={[
-          styles.analyzeButton,
-          !selectedPdf && styles.analyzeButtonDisabled,
-        ]}
-        disabled={!selectedPdf}
-      >
-        <Text style={styles.analyzeText}>분석 시작</Text>
-      </TouchableOpacity>
+      <View style={styles.footer}>
+        <TouchableOpacity
+          style={[styles.analyzeButton, !selectedFile && styles.analyzeButtonDisabled]}
+          onPress={handleAnalyze}
+          disabled={!selectedFile || uploading}
+        >
+          {uploading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.analyzeText}>분석 시작</Text>
+          )}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -30,40 +86,99 @@ export default function PdfUploadScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 24,
-    justifyContent: "space-between",
+    backgroundColor: '#F8FAFC',
   },
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 56,
+    paddingBottom: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
   },
-  uploadButton: {
-    width: "100%",
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: "#111",
-    justifyContent: "center",
-    alignItems: "center",
+  backButton: {
+    width: 60,
   },
-  uploadText: {
-    color: "#fff",
+  backText: {
     fontSize: 16,
-    fontWeight: "600",
+    color: '#2563EB',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+  },
+  pickArea: {
+    borderWidth: 2,
+    borderColor: '#CBD5E1',
+    borderStyle: 'dashed',
+    borderRadius: 16,
+    paddingVertical: 48,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    gap: 12,
+  },
+  pickAreaSelected: {
+    borderColor: '#2563EB',
+    borderStyle: 'solid',
+    backgroundColor: '#EFF6FF',
+  },
+  fileIcon: {
+    fontSize: 52,
+  },
+  pickTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  pickHint: {
+    fontSize: 14,
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  fileName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1E40AF',
+    textAlign: 'center',
+  },
+  fileHint: {
+    fontSize: 13,
+    color: '#64748B',
+  },
+  footer: {
+    padding: 24,
+    paddingBottom: 48,
   },
   analyzeButton: {
+    backgroundColor: '#2563EB',
     height: 56,
     borderRadius: 12,
-    backgroundColor: "#2563EB",
-    justifyContent: "center",
-    alignItems: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   analyzeButtonDisabled: {
-    backgroundColor: "#CBD5E1",
+    backgroundColor: '#CBD5E1',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   analyzeText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '700',
   },
 });

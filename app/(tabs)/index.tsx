@@ -1,114 +1,121 @@
-import { Image } from "expo-image";
-import { Platform, StyleSheet } from "react-native";
-
-import { HelloWave } from "@/components/hello-wave";
-import ParallaxScrollView from "@/components/parallax-scroll-view";
-import { ThemedText } from "@/components/themed-text";
-import { ThemedView } from "@/components/themed-view";
-import { Link } from "expo-router";
+import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { router } from 'expo-router';
 
 export default function HomeScreen() {
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: "#A1CEDC", dark: "#1D3D47" }}
-      headerImage={
-        <Image
-          source={require("@/assets/images/partial-react-logo.png")}
-          style={styles.reactLogo}
-        />
-      }
-    >
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit{" "}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText>{" "}
-          to see changes. Press{" "}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: "cmd + d",
-              android: "cmd + m",
-              web: "F12",
-            })}
-          </ThemedText>{" "}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction
-              title="Action"
-              icon="cube"
-              onPress={() => alert("Action pressed")}
-            />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert("Share pressed")}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert("Delete pressed")}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">
-            npm run reset-project
-          </ThemedText>{" "}
-          to get a fresh <ThemedText type="defaultSemiBold">app</ThemedText>{" "}
-          directory. This will move the current{" "}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{" "}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">pdf test</ThemedText>
+    <View style={styles.container}>
+      <View style={styles.hero}>
+        <Text style={styles.emoji}>🏠</Text>
+        <Text style={styles.title}>SafeHome</Text>
+        <Text style={styles.subtitle}>전세사기 예방 등기부등본 분석</Text>
+      </View>
 
-        {/* 🔽 여기만 변경 */}
-        <Link href="/upload">
-          <ThemedText type="subtitle">PDF 업로드 화면 이동</ThemedText>
-        </Link>
-      </ThemedView>
-    </ParallaxScrollView>
+      <View style={styles.infoBox}>
+        <InfoItem emoji="📄" text="등기부등본 PDF 업로드" />
+        <InfoItem emoji="🤖" text="AI가 권리 관계 자동 분석" />
+        <InfoItem emoji="🔍" text="위험 신호 및 안전 등급 확인" />
+      </View>
+
+      <View style={styles.footer}>
+        <TouchableOpacity style={styles.ctaButton} onPress={() => router.push('/upload')}>
+          <Text style={styles.ctaText}>등기부등본 분석하기</Text>
+        </TouchableOpacity>
+        <Text style={styles.disclaimer}>
+          분석 결과는 참고용이며 법적 효력이 없습니다.{'\n'}
+          중요한 계약 전 전문가 상담을 권장합니다.
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function InfoItem({ emoji, text }: { emoji: string; text: string }) {
+  return (
+    <View style={styles.infoItem}>
+      <Text style={styles.infoEmoji}>{emoji}</Text>
+      <Text style={styles.infoText}>{text}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: "row",
-    alignItems: "center",
+  container: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 24,
+    justifyContent: 'space-between',
+    paddingTop: 80,
+    paddingBottom: 40,
+  },
+  hero: {
+    alignItems: 'center',
     gap: 8,
   },
-  stepContainer: {
-    gap: 8,
+  emoji: {
+    fontSize: 64,
     marginBottom: 8,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: "absolute",
+  title: {
+    fontSize: 36,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#64748B',
+    textAlign: 'center',
+  },
+  infoBox: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    gap: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  infoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  infoEmoji: {
+    fontSize: 28,
+    width: 40,
+    textAlign: 'center',
+  },
+  infoText: {
+    fontSize: 16,
+    color: '#1E293B',
+    fontWeight: '500',
+  },
+  footer: {
+    gap: 16,
+  },
+  ctaButton: {
+    backgroundColor: '#2563EB',
+    height: 58,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#2563EB',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  ctaText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  disclaimer: {
+    fontSize: 12,
+    color: '#94A3B8',
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });
