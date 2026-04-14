@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -9,9 +9,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { getJob } from '@/services/api';
-import type { ChecklistItem, DeedJob, SafetyLevel } from '@/types/deed';
-
-const POLL_INTERVAL_MS = 2000;
+import type { ChecklistItem, DeedAnalysis, DeedJob, SafetyLevel } from '@/types/deed';
 
 // ─── 안전 등급 메타데이터 ────────────────────────────────────────────
 const SAFETY_META: Record<SafetyLevel, { label: string; icon: string; bg: string; text: string; border: string }> = {
@@ -32,33 +30,58 @@ export default function ResultScreen() {
   const { jobId } = useLocalSearchParams<{ jobId: string }>();
   const [job, setJob] = useState<DeedJob | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const stopPolling = () => {
-    if (pollRef.current) clearInterval(pollRef.current);
-  };
-
-  const poll = async () => {
-    try {
-      const data = await getJob(jobId);
-      setJob(data);
-      if (data.status === 'COMPLETED' || data.status === 'FAILED') {
-        stopPolling();
-      }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : '조회에 실패했습니다.');
-      stopPolling();
-    }
-  };
 
   useEffect(() => {
-    poll();
-    pollRef.current = setInterval(poll, POLL_INTERVAL_MS);
-    return stopPolling;
+    const load = async () => {
+      try {
+        const data = await getJob(jobId);
+        setJob(data);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '조회에 실패했습니다.');
+      }
+    };
+    load();
   }, [jobId]);
 
   // ── 로딩 ──
-  if (!job || job.status === 'PENDING' || job.status === 'IN_PROGRESS') {
+  if (!job) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#2563EB" />
+        {error ? (
+          <>
+            <Text style={styles.stateTitle}>오류 발생</Text>
+            <Text style={styles.stateDesc}>{error}</Text>
+            <TouchableOpacity style={styles.retryButton} onPress={() => router.back()}>
+              <Text style={styles.retryText}>다시 시도</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <Text style={styles.loadingTitle}>결과 불러오는 중...</Text>
+          </>
+        )}
+      </View>
+    );
+  }
+
+  // ── 오류 / FAILED ──
+  if (job.status === 'FAILED') {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.stateIcon}>⚠️</Text>
+        <Text style={styles.stateTitle}>분석 실패</Text>
+        <Text style={styles.stateDesc}>{job.description ?? '분석 중 오류가 발생했습니다.'}</Text>
+        <TouchableOpacity style={styles.retryButton} onPress={() => router.back()}>
+          <Text style={styles.retryText}>다시 시도</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const analysis: DeedAnalysis | null = job.result ? JSON.parse(job.result) : null;
+
+  if (!analysis) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color="#2563EB" />
@@ -67,23 +90,6 @@ export default function ResultScreen() {
       </View>
     );
   }
-
-  // ── 오류 / FAILED ──
-  if (error || job.status === 'FAILED') {
-    return (
-      <View style={styles.centered}>
-        <Text style={styles.stateIcon}>⚠️</Text>
-        <Text style={styles.stateTitle}>분석 실패</Text>
-        <Text style={styles.stateDesc}>{error ?? job.errorMessage ?? '분석 중 오류가 발생했습니다.'}</Text>
-        <TouchableOpacity style={styles.retryButton} onPress={() => router.back()}>
-          <Text style={styles.retryText}>다시 시도</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  const { analysis } = job;
-  if (!analysis) return null;
 
   // ── 유효하지 않은 문서 ──
   if (!analysis.isValidDeed) {

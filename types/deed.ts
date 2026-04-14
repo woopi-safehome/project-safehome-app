@@ -2,6 +2,7 @@ export type SafetyLevel = 'SAFE' | 'CAUTION' | 'DANGER';
 export type JobStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
 export type ChecklistStatus = '양호' | '주의' | '위험' | '확인불가';
 export type RiskSeverity = 'HIGH' | 'MEDIUM' | 'LOW';
+export type AnalysisStep = 'PDF_PARSING' | 'LLM_ANALYSIS' | 'POST_PROCESSING';
 
 export interface ApiResponse<T> {
   type: 'success' | 'error';
@@ -10,17 +11,22 @@ export interface ApiResponse<T> {
   code?: string;
 }
 
-export interface UploadJobResponse {
+export interface SseEvent {
   jobId: string;
+  status: JobStatus;
+  step: AnalysisStep | null;
+  message: string;
+  timestamp: string;
 }
 
 export interface DeedJob {
   jobId: string;
   status: JobStatus;
-  fileName?: string;
-  createdAt?: string;
-  analysis?: DeedAnalysis;
-  errorMessage?: string;
+  fileName: string;
+  fileSize: number;
+  step?: AnalysisStep;
+  description?: string;
+  result?: string; // raw JSON string — parse to DeedAnalysis when COMPLETED
 }
 
 export interface DeedAnalysis {

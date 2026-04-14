@@ -1,12 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
-import { uploadDeed } from '@/services/api';
+import { analyzeDeed } from '@/services/api';
+import type { SseEvent } from '@/types/deed';
 
 export default function UploadScreen() {
   const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
-  const [uploading, setUploading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [progressMessage, setProgressMessage] = useState('');
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   const handlePickDocument = async () => {
     const result = await DocumentPicker.getDocumentAsync({
@@ -20,18 +29,36 @@ export default function UploadScreen() {
 
   const handleAnalyze = async () => {
     if (!selectedFile) return;
-    setUploading(true);
+    setAnalyzing(true);
+    setProgressMessage('분석 요청 중...');
+
+    const abort = new AbortController();
+    abortRef.current = abort;
+    let jobId: string | null = null;
+
     try {
-      const jobId = await uploadDeed(
+      await analyzeDeed(
         selectedFile.uri,
         selectedFile.name,
         selectedFile.mimeType ?? 'application/pdf',
+        (event: SseEvent) => {
+          if (!jobId) jobId = event.jobId;
+          setProgressMessage(event.message);
+
+          if (event.status === 'COMPLETED' && jobId) {
+            router.replace(`/result/${jobId}`);
+          } else if (event.status === 'FAILED') {
+            Alert.alert('분석 실패', event.message || '분석 중 오류가 발생했습니다.');
+            setAnalyzing(false);
+          }
+        },
+        abort.signal,
       );
-      router.replace(`/result/${jobId}`);
     } catch (error) {
-      Alert.alert('오류', error instanceof Error ? error.message : '업로드에 실패했습니다.');
-    } finally {
-      setUploading(false);
+      if ((error as Error).name !== 'AbortError') {
+        Alert.alert('오류', error instanceof Error ? error.message : '분석 요청에 실패했습니다.');
+        setAnalyzing(false);
+      }
     }
   };
 
@@ -49,12 +76,13 @@ export default function UploadScreen() {
         <TouchableOpacity
           style={[styles.pickArea, selectedFile && styles.pickAreaSelected]}
           onPress={handlePickDocument}
+          disabled={analyzing}
         >
           {selectedFile ? (
             <>
               <Text style={styles.fileIcon}>📄</Text>
               <Text style={styles.fileName} numberOfLines={2}>{selectedFile.name}</Text>
-              <Text style={styles.fileHint}>탭하여 다시 선택</Text>
+              {!analyzing && <Text style={styles.fileHint}>탭하여 다시 선택</Text>}
             </>
           ) : (
             <>
@@ -67,12 +95,15 @@ export default function UploadScreen() {
       </View>
 
       <View style={styles.footer}>
+        {analyzing && progressMessage ? (
+          <Text style={styles.progressMessage}>{progressMessage}</Text>
+        ) : null}
         <TouchableOpacity
           style={[styles.analyzeButton, !selectedFile && styles.analyzeButtonDisabled]}
           onPress={handleAnalyze}
-          disabled={!selectedFile || uploading}
+          disabled={!selectedFile || analyzing}
         >
-          {uploading ? (
+          {analyzing ? (
             <ActivityIndicator color="#fff" />
           ) : (
             <Text style={styles.analyzeText}>분석 시작</Text>
@@ -158,6 +189,13 @@ const styles = StyleSheet.create({
   footer: {
     padding: 24,
     paddingBottom: 48,
+    gap: 12,
+  },
+  progressMessage: {
+    fontSize: 14,
+    color: '#2563EB',
+    textAlign: 'center',
+    fontWeight: '500',
   },
   analyzeButton: {
     backgroundColor: '#2563EB',
