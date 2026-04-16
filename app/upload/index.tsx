@@ -9,6 +9,7 @@ export default function UploadScreen() {
   const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [progressMessage, setProgressMessage] = useState('');
+  const [pendingJobId, setPendingJobId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -30,11 +31,13 @@ export default function UploadScreen() {
   const handleAnalyze = async () => {
     if (!selectedFile) return;
     setAnalyzing(true);
+    setPendingJobId(null);
     setProgressMessage('분석 요청 중...');
 
     const abort = new AbortController();
     abortRef.current = abort;
     let jobId: string | null = null;
+    let completed = false;
 
     try {
       await analyzeDeed(
@@ -42,18 +45,28 @@ export default function UploadScreen() {
         selectedFile.name,
         selectedFile.mimeType ?? 'application/pdf',
         (event: SseEvent) => {
-          if (!jobId) jobId = event.jobId;
+          if (!jobId) {
+            jobId = event.jobId;
+            setPendingJobId(event.jobId);
+          }
           setProgressMessage(event.message);
 
           if (event.status === 'COMPLETED' && jobId) {
+            completed = true;
             router.replace(`/result/${jobId}`);
           } else if (event.status === 'FAILED') {
+            completed = true;
             Alert.alert('분석 실패', event.message || '분석 중 오류가 발생했습니다.');
             setAnalyzing(false);
           }
         },
         abort.signal,
       );
+      // SSE 스트림이 COMPLETED/FAILED 없이 종료된 경우
+      if (!completed) {
+        setAnalyzing(false);
+        setProgressMessage('연결이 끊어졌습니다. 결과를 확인해보세요.');
+      }
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
         Alert.alert('오류', error instanceof Error ? error.message : '분석 요청에 실패했습니다.');
@@ -95,8 +108,18 @@ export default function UploadScreen() {
       </View>
 
       <View style={styles.footer}>
-        {analyzing && progressMessage ? (
-          <Text style={styles.progressMessage}>{progressMessage}</Text>
+        {progressMessage ? (
+          <Text style={[styles.progressMessage, !analyzing && styles.progressMessageMuted]}>
+            {progressMessage}
+          </Text>
+        ) : null}
+        {!analyzing && pendingJobId ? (
+          <TouchableOpacity
+            style={styles.resultButton}
+            onPress={() => router.replace(`/result/${pendingJobId}`)}
+          >
+            <Text style={styles.resultButtonText}>결과 확인하기</Text>
+          </TouchableOpacity>
         ) : null}
         <TouchableOpacity
           style={[styles.analyzeButton, !selectedFile && styles.analyzeButtonDisabled]}
@@ -196,6 +219,23 @@ const styles = StyleSheet.create({
     color: '#2563EB',
     textAlign: 'center',
     fontWeight: '500',
+  },
+  progressMessageMuted: {
+    color: '#64748B',
+  },
+  resultButton: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1.5,
+    borderColor: '#86EFAC',
+    height: 52,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  resultButtonText: {
+    color: '#15803D',
+    fontSize: 16,
+    fontWeight: '700',
   },
   analyzeButton: {
     backgroundColor: '#2563EB',

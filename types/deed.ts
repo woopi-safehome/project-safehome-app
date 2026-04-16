@@ -26,7 +26,7 @@ export interface DeedJob {
   fileSize: number;
   step?: AnalysisStep;
   description?: string;
-  result?: string; // raw JSON string — parse to DeedAnalysis when COMPLETED
+  result?: DeedAnalysis; // @JsonRawValue로 내려오므로 이미 파싱된 객체
 }
 
 export interface DeedAnalysis {

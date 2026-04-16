@@ -79,7 +79,7 @@ export default function ResultScreen() {
     );
   }
 
-  const analysis: DeedAnalysis | null = job.result ? JSON.parse(job.result) : null;
+  const analysis: DeedAnalysis | null = job.result ?? null;
 
   if (!analysis) {
     return (
