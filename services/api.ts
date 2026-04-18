@@ -8,17 +8,17 @@ const BASE_URL = Platform.select({
   default: 'http://localhost:8080',
 });
 
-export async function analyzeDeed(
+// PDF를 업로드하고 분석을 시작한 뒤 jobId를 반환합니다.
+// SSE 스트림의 첫 번째 이벤트에서 jobId를 추출하고 연결을 닫습니다.
+// 분석은 서버에서 비동기로 계속 진행됩니다.
+export async function uploadDeed(
   fileUri: string,
   fileName: string,
   mimeType: string,
-  onEvent: (event: SseEvent) => void,
   signal?: AbortSignal,
-): Promise<void> {
+): Promise<string> {
   const formData = new FormData();
   if (Platform.OS === 'web') {
-    // 웹에서는 blob URL을 실제 Blob으로 변환해서 추가해야 함
-    // { uri, name, type } 객체는 브라우저에서 [object Object]로 직렬화됨
     const blobRes = await fetch(fileUri);
     const blob = await blobRes.blob();
     formData.append('file', blob, fileName);
@@ -62,7 +62,10 @@ export async function analyzeDeed(
           const raw = trimmed.slice(5).trim();
           if (raw) {
             try {
-              onEvent(JSON.parse(raw) as SseEvent);
+              const event = JSON.parse(raw) as SseEvent;
+              if (event.jobId) {
+                return event.jobId;
+              }
             } catch {
               // ignore malformed lines
             }
@@ -73,6 +76,8 @@ export async function analyzeDeed(
   } finally {
     reader.releaseLock();
   }
+
+  throw new Error('분석 작업 ID를 받지 못했습니다');
 }
 
 export async function getJob(jobId: string): Promise<DeedJob> {

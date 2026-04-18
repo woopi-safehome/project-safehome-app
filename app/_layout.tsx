@@ -17,6 +17,7 @@ export default function RootLayout() {
       <Stack>
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="upload/index" options={{ headerShown: false }} />
+        <Stack.Screen name="analyzing/[jobId]" options={{ headerShown: false }} />
         <Stack.Screen name="result/[jobId]" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
