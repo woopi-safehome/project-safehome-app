@@ -3,9 +3,16 @@ import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } fr
 import { router } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import { uploadDeed } from '@/services/api';
+import type { LeaseType } from '@/types/deed';
+
+const LEASE_TYPES: { value: LeaseType; label: string }[] = [
+  { value: '전세', label: '전세' },
+  { value: '월세', label: '월세' },
+];
 
 export default function UploadScreen() {
   const [selectedFile, setSelectedFile] = useState<DocumentPicker.DocumentPickerAsset | null>(null);
+  const [leaseType, setLeaseType] = useState<LeaseType | null>(null);
   const [uploading, setUploading] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -32,6 +39,7 @@ export default function UploadScreen() {
         selectedFile.name,
         selectedFile.mimeType ?? 'application/pdf',
         abort.signal,
+        leaseType ?? undefined,
       );
       router.replace(`/analyzing/${jobId}`);
     } catch (error) {
@@ -72,6 +80,30 @@ export default function UploadScreen() {
             </>
           )}
         </TouchableOpacity>
+
+        {/* 임대차 유형 선택 */}
+        <View style={styles.leaseSection}>
+          <Text style={styles.leaseLabel}>임대차 유형 <Text style={styles.leaseLabelOptional}>(선택)</Text></Text>
+          <View style={styles.leaseRow}>
+            {LEASE_TYPES.map(({ value, label }) => (
+              <TouchableOpacity
+                key={value}
+                style={[styles.leaseChip, leaseType === value && styles.leaseChipActive]}
+                onPress={() => setLeaseType(prev => prev === value ? null : value)}
+                disabled={uploading}
+              >
+                <Text style={[styles.leaseChipText, leaseType === value && styles.leaseChipTextActive]}>
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {leaseType && (
+            <Text style={styles.leaseHint}>
+              {leaseType === '전세' ? '전세 보증금 보호 관점으로 분석합니다' : '월세 계약 안전성 관점으로 분석합니다'}
+            </Text>
+          )}
+        </View>
       </View>
 
       <View style={styles.footer}>
@@ -165,6 +197,50 @@ const styles = StyleSheet.create({
   fileHint: {
     fontSize: 13,
     color: '#64748B',
+  },
+  leaseSection: {
+    marginTop: 24,
+    gap: 10,
+  },
+  leaseLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  leaseLabelOptional: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#94A3B8',
+  },
+  leaseRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  leaseChip: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  leaseChipActive: {
+    borderColor: '#2563EB',
+    backgroundColor: '#EFF6FF',
+  },
+  leaseChipText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  leaseChipTextActive: {
+    color: '#2563EB',
+  },
+  leaseHint: {
+    fontSize: 12,
+    color: '#2563EB',
+    textAlign: 'center',
   },
   footer: {
     padding: 24,

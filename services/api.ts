@@ -16,6 +16,7 @@ export async function uploadDeed(
   fileName: string,
   mimeType: string,
   signal?: AbortSignal,
+  leaseType?: string,
 ): Promise<string> {
   const formData = new FormData();
   if (Platform.OS === 'web') {
@@ -28,6 +29,9 @@ export async function uploadDeed(
       name: fileName,
       type: mimeType || 'application/pdf',
     } as unknown as Blob);
+  }
+  if (leaseType) {
+    formData.append('leaseType', leaseType);
   }
 
   const response = await fetch(`${BASE_URL}/api/deed/analyze`, {

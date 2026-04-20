@@ -3,6 +3,8 @@ export type JobStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
 export type ChecklistStatus = '양호' | '주의' | '위험' | '확인불가';
 export type RiskSeverity = 'HIGH' | 'MEDIUM' | 'LOW';
 export type AnalysisStep = 'PDF_PARSING' | 'LLM_ANALYSIS' | 'POST_PROCESSING';
+export type LeaseType = '전세' | '월세';
+export type LeaseCheckItemPriority = '필수' | '권장' | '참고';
 
 export interface ApiResponse<T> {
   type: 'success' | 'error';
@@ -29,6 +31,19 @@ export interface DeedJob {
   result?: DeedAnalysis; // @JsonRawValue로 내려오므로 이미 파싱된 객체
 }
 
+export interface LeaseCheckItem {
+  category: string;
+  title: string;
+  description: string;
+  priority: LeaseCheckItemPriority;
+}
+
+export interface LeaseSpecificAnalysis {
+  leaseType: string;
+  summary: string;
+  checkItems: LeaseCheckItem[];
+}
+
 export interface DeedAnalysis {
   isValidDeed: boolean;
   reason?: string;
@@ -40,6 +55,8 @@ export interface DeedAnalysis {
   legalRisks?: LegalRisk[];
   safetyChecklist?: ChecklistItem[];
   keyRiskPoints?: string[];
+  overallRiskSummary?: string;
+  leaseSpecificAnalysis?: LeaseSpecificAnalysis;
   recommendation?: string;
   summary?: string;
 }

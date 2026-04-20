@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { getJob } from '@/services/api';
-import type { ChecklistItem, DeedAnalysis, DeedJob, SafetyLevel } from '@/types/deed';
+import type { ChecklistItem, DeedAnalysis, DeedJob, LeaseCheckItem, LeaseCheckItemPriority, LeaseSpecificAnalysis, SafetyLevel } from '@/types/deed';
 
 // ─── 안전 등급 메타데이터 ────────────────────────────────────────────
 const SAFETY_META: Record<SafetyLevel, { label: string; icon: string; bg: string; text: string; border: string }> = {
@@ -23,6 +23,12 @@ const CHECKLIST_META: Record<string, { color: string; badge: string }> = {
   '주의':   { color: '#B45309', badge: '#FEF9C3' },
   '위험':   { color: '#BE123C', badge: '#FFE4E6' },
   '확인불가': { color: '#64748B', badge: '#F1F5F9' },
+};
+
+const PRIORITY_META: Record<LeaseCheckItemPriority, { color: string; badge: string; label: string }> = {
+  '필수': { color: '#BE123C', badge: '#FFE4E6', label: '필수' },
+  '권장': { color: '#B45309', badge: '#FEF9C3', label: '권장' },
+  '참고': { color: '#475569', badge: '#F1F5F9', label: '참고' },
 };
 
 // ─── 메인 화면 ───────────────────────────────────────────────────────
@@ -182,6 +188,18 @@ export default function ResultScreen() {
         </Card>
       )}
 
+      {/* 종합 위험도 */}
+      {analysis.overallRiskSummary && (
+        <Card title="🔍 종합 위험도">
+          <Text style={styles.bodyText}>{analysis.overallRiskSummary}</Text>
+        </Card>
+      )}
+
+      {/* 임대차 유형별 분석 */}
+      {analysis.leaseSpecificAnalysis && (
+        <LeaseSpecificCard analysis={analysis.leaseSpecificAnalysis} />
+      )}
+
       {/* 종합 분석 */}
       {analysis.summary && (
         <Card title="📋 종합 분석">
@@ -203,6 +221,43 @@ export default function ResultScreen() {
 }
 
 // ─── 하위 컴포넌트 ────────────────────────────────────────────────────
+function LeaseSpecificCard({ analysis }: { analysis: LeaseSpecificAnalysis }) {
+  const leaseLabel = analysis.leaseType === '전세' ? '🏦 전세 계약 분석' : analysis.leaseType === '월세' ? '🏠 월세 계약 분석' : '📝 임대차 유형별 분석';
+  return (
+    <View style={styles.card}>
+      <Text style={styles.cardTitle}>{leaseLabel}</Text>
+      <View style={styles.cardBody}>
+        <Text style={styles.bodyText}>{analysis.summary}</Text>
+        {analysis.checkItems && analysis.checkItems.length > 0 && (
+          <>
+            <View style={styles.divider} />
+            <Text style={styles.checkSubTitle}>확인 사항</Text>
+            {analysis.checkItems.map((item, i) => (
+              <LeaseCheckItemRow key={i} item={item} />
+            ))}
+          </>
+        )}
+      </View>
+    </View>
+  );
+}
+
+function LeaseCheckItemRow({ item }: { item: LeaseCheckItem }) {
+  const meta = PRIORITY_META[item.priority] ?? PRIORITY_META['참고'];
+  return (
+    <View style={styles.leaseCheckRow}>
+      <View style={styles.leaseCheckTop}>
+        <Text style={styles.leaseCheckTitle} numberOfLines={2}>{item.title}</Text>
+        <View style={[styles.statusBadge, { backgroundColor: meta.badge }]}>
+          <Text style={[styles.statusText, { color: meta.color }]}>{meta.label}</Text>
+        </View>
+      </View>
+      <Text style={styles.leaseCheckCategory}>{item.category}</Text>
+      <Text style={styles.checklistDetail}>{item.description}</Text>
+    </View>
+  );
+}
+
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View style={styles.card}>
@@ -418,5 +473,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#334155',
     lineHeight: 24,
+  },
+
+  // ── 임대차 유형별 분석 ──
+  divider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginVertical: 4,
+  },
+  checkSubTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: 4,
+  },
+  leaseCheckRow: {
+    gap: 4,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  leaseCheckTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  leaseCheckTitle: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#0F172A',
+  },
+  leaseCheckCategory: {
+    fontSize: 11,
+    color: '#94A3B8',
+    fontWeight: '500',
   },
 });
