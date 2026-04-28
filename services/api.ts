@@ -1,12 +1,12 @@
 import { Platform } from 'react-native';
 import type { ApiResponse, DeedJob, SseEvent } from '@/types/deed';
 
-// Android 에뮬레이터는 10.0.2.2로 호스트 localhost에 접근
-// iOS 시뮬레이터 / 웹은 localhost 직접 사용
-const BASE_URL = Platform.select({
-  android: 'http://10.0.2.2:8080',
-  default: 'http://localhost:8080',
-});
+const BASE_URL =
+  process.env.EXPO_PUBLIC_API_URL ??
+  Platform.select({
+    android: 'http://10.0.2.2:8080',
+    default: 'http://localhost:8080',
+  });
 
 // PDF를 업로드하고 분석을 시작한 뒤 jobId를 반환합니다.
 // SSE 스트림의 첫 번째 이벤트에서 jobId를 추출하고 연결을 닫습니다.
