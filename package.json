@@ -4,6 +4,10 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
+    "start:local": "cross-env EXPO_PUBLIC_API_URL=http://localhost:8080 expo start",
+    "start:dev": "cross-env EXPO_PUBLIC_API_URL=http://devupii.store:38080 expo start",
+    "web:local": "cross-env EXPO_PUBLIC_API_URL=http://localhost:8080 expo start --web",
+    "web:dev": "cross-env EXPO_PUBLIC_API_URL=http://devupii.store:38080 expo start --web",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
@@ -40,9 +44,10 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
-    "typescript": "~5.9.2",
+    "cross-env": "^10.1.0",
     "eslint": "^9.25.0",
-    "eslint-config-expo": "~10.0.0"
+    "eslint-config-expo": "~10.0.0",
+    "typescript": "~5.9.2"
   },
   "private": true
 }
