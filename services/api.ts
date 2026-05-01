@@ -9,7 +9,7 @@ const BASE_URL =
   });
 
 // PDF를 업로드하고 분석을 시작한 뒤 jobId를 반환합니다.
-// SSE 스트림의 첫 번째 이벤트에서 jobId를 추출하고 연결을 닫습니다.
+// SSE 스트림의 첫 번째 이벤트에서 jobId를 추출합니다.
 // 분석은 서버에서 비동기로 계속 진행됩니다.
 export async function uploadDeed(
   fileUri: string,
@@ -34,32 +34,75 @@ export async function uploadDeed(
     formData.append('leaseType', leaseType);
   }
 
-  const response = await fetch(`${BASE_URL}/api/deed/analyze`, {
-    method: 'POST',
-    body: formData,
-    signal,
-  });
+  // 웹: fetch ReadableStream 사용
+  if (Platform.OS === 'web') {
+    const response = await fetch(`${BASE_URL}/api/deed/analyze`, {
+      method: 'POST',
+      body: formData,
+      signal,
+    });
 
-  if (!response.ok) {
-    throw new Error(`분석 요청 실패 (${response.status})`);
+    if (!response.ok) {
+      throw new Error(`분석 요청 실패 (${response.status})`);
+    }
+    if (!response.body) {
+      throw new Error('SSE 스트림을 읽을 수 없습니다');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('data:')) {
+            const raw = trimmed.slice(5).trim();
+            if (raw) {
+              try {
+                const event = JSON.parse(raw) as SseEvent;
+                if (event.jobId) {
+                  return event.jobId;
+                }
+              } catch {
+                // ignore malformed lines
+              }
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
+    }
+
+    throw new Error('분석 작업 ID를 받지 못했습니다');
   }
-  if (!response.body) {
-    throw new Error('SSE 스트림을 읽을 수 없습니다');
-  }
 
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = '';
+  // 네이티브: XHR onprogress로 SSE 스트리밍 처리
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', `${BASE_URL}/api/deed/analyze`);
 
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    let buffer = '';
+    let resolved = false;
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() ?? '';
+    signal?.addEventListener('abort', () => {
+      xhr.abort();
+      reject(new Error('요청이 취소되었습니다'));
+    });
 
+    const parseBuffer = () => {
+      if (!xhr.responseText) return;
+
+      const lines = xhr.responseText.split('\n');
       for (const line of lines) {
         const trimmed = line.trim();
         if (trimmed.startsWith('data:')) {
@@ -67,8 +110,10 @@ export async function uploadDeed(
           if (raw) {
             try {
               const event = JSON.parse(raw) as SseEvent;
-              if (event.jobId) {
-                return event.jobId;
+              if (event.jobId && !resolved) {
+                resolved = true;
+                resolve(event.jobId);
+                return;
               }
             } catch {
               // ignore malformed lines
@@ -76,12 +121,24 @@ export async function uploadDeed(
           }
         }
       }
-    }
-  } finally {
-    reader.releaseLock();
-  }
+    };
 
-  throw new Error('분석 작업 ID를 받지 못했습니다');
+    xhr.onreadystatechange = () => {
+      if (xhr.readyState === 3 || xhr.readyState === 4) {
+        parseBuffer();
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Network request failed'));
+    xhr.ontimeout = () => reject(new Error('요청 시간이 초과되었습니다'));
+    xhr.onload = () => {
+      if (!resolved) {
+        reject(new Error('분석 작업 ID를 받지 못했습니다'));
+      }
+    };
+
+    xhr.send(formData);
+  });
 }
 
 export async function getJob(jobId: string): Promise<DeedJob> {
