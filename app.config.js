@@ -1,4 +1,5 @@
 const IS_PREVIEW = process.env.APP_ENV === 'preview';
+const IS_PRODUCTION = process.env.APP_ENV === 'production';
 
 export default {
   expo: {
@@ -14,7 +15,7 @@ export default {
       supportsTablet: true,
     },
     android: {
-      usesCleartextTraffic: IS_PREVIEW,
+      usesCleartextTraffic: !IS_PRODUCTION,
       adaptiveIcon: {
         backgroundColor: '#E6F4FE',
         foregroundImage: './assets/images/android-icon-foreground.png',
@@ -32,6 +33,13 @@ export default {
     plugins: [
       'expo-router',
       'expo-web-browser',
+      [
+        '@sentry/react-native/expo',
+        {
+          organization: 'woopii',
+          project: 'safehome-app',
+        },
+      ],
       [
         'expo-splash-screen',
         {

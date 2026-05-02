@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { getJob } from '@/services/api';
+import { logger } from '@/services/logger';
 import type { DeedJob } from '@/types/deed';
 
 const POLL_INTERVAL_MS = 2000;
@@ -132,6 +133,7 @@ export default function AnalyzingScreen() {
         }
       } catch (e) {
         if (!cancelled) {
+          logger.error('Analyzing', '상태 조회 실패', e, { jobId });
           setError(e instanceof Error ? e.message : '상태 조회에 실패했습니다.');
         }
       }

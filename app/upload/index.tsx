@@ -3,6 +3,7 @@ import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } fr
 import { router } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 import { uploadDeed } from '@/services/api';
+import { logger } from '@/services/logger';
 import type { LeaseType } from '@/types/deed';
 
 const LEASE_TYPES: { value: LeaseType; label: string }[] = [
@@ -44,6 +45,10 @@ export default function UploadScreen() {
       router.replace(`/analyzing/${jobId}`);
     } catch (error) {
       if ((error as Error).name !== 'AbortError') {
+        logger.error('Upload', '업로드 실패', error, {
+          fileName: selectedFile.name,
+          leaseType: leaseType ?? 'none',
+        });
         Alert.alert('오류', error instanceof Error ? error.message : '분석 요청에 실패했습니다.');
         setUploading(false);
       }

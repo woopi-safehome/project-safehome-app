@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
 import type { ApiResponse, DeedJob, SseEvent } from '@/types/deed';
+import { ApiError, NetworkError, ParseError } from '@/services/errors';
+import { logger } from '@/services/logger';
 
 const BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ??
@@ -8,9 +10,6 @@ const BASE_URL =
     default: 'http://localhost:8080',
   });
 
-// PDF를 업로드하고 분석을 시작한 뒤 jobId를 반환합니다.
-// SSE 스트림의 첫 번째 이벤트에서 jobId를 추출합니다.
-// 분석은 서버에서 비동기로 계속 진행됩니다.
 export async function uploadDeed(
   fileUri: string,
   fileName: string,
@@ -18,6 +17,11 @@ export async function uploadDeed(
   signal?: AbortSignal,
   leaseType?: string,
 ): Promise<string> {
+  const url = `${BASE_URL}/api/deed/analyze`;
+  const ctx = { url, fileName, leaseType: leaseType ?? 'none' };
+
+  logger.info('API/upload', '업로드 시작', ctx);
+
   const formData = new FormData();
   if (Platform.OS === 'web') {
     const blobRes = await fetch(fileUri);
@@ -36,17 +40,22 @@ export async function uploadDeed(
 
   // 웹: fetch ReadableStream 사용
   if (Platform.OS === 'web') {
-    const response = await fetch(`${BASE_URL}/api/deed/analyze`, {
-      method: 'POST',
-      body: formData,
-      signal,
-    });
+    let response: Response;
+    try {
+      response = await fetch(url, { method: 'POST', body: formData, signal });
+    } catch (e) {
+      const err = new NetworkError('Network request failed', url);
+      logger.error('API/upload', '네트워크 연결 실패 (web)', err, ctx);
+      throw err;
+    }
 
     if (!response.ok) {
-      throw new Error(`분석 요청 실패 (${response.status})`);
+      const err = new ApiError(`분석 요청 실패 (${response.status})`, response.status, url);
+      logger.error('API/upload', 'HTTP 오류 응답', err, { ...ctx, statusCode: response.status });
+      throw err;
     }
     if (!response.body) {
-      throw new Error('SSE 스트림을 읽을 수 없습니다');
+      throw new ParseError('SSE 스트림을 읽을 수 없습니다');
     }
 
     const reader = response.body.getReader();
@@ -70,6 +79,7 @@ export async function uploadDeed(
               try {
                 const event = JSON.parse(raw) as SseEvent;
                 if (event.jobId) {
+                  logger.info('API/upload', '업로드 성공', { ...ctx, jobId: event.jobId });
                   return event.jobId;
                 }
               } catch {
@@ -83,15 +93,14 @@ export async function uploadDeed(
       reader.releaseLock();
     }
 
-    throw new Error('분석 작업 ID를 받지 못했습니다');
+    throw new ParseError('분석 작업 ID를 받지 못했습니다');
   }
 
   // 네이티브: XHR onprogress로 SSE 스트리밍 처리
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', `${BASE_URL}/api/deed/analyze`);
+    xhr.open('POST', url);
 
-    let buffer = '';
     let resolved = false;
 
     signal?.addEventListener('abort', () => {
@@ -112,6 +121,7 @@ export async function uploadDeed(
               const event = JSON.parse(raw) as SseEvent;
               if (event.jobId && !resolved) {
                 resolved = true;
+                logger.info('API/upload', '업로드 성공', { ...ctx, jobId: event.jobId });
                 resolve(event.jobId);
                 return;
               }
@@ -129,11 +139,31 @@ export async function uploadDeed(
       }
     };
 
-    xhr.onerror = () => reject(new Error('Network request failed'));
-    xhr.ontimeout = () => reject(new Error('요청 시간이 초과되었습니다'));
+    xhr.onerror = () => {
+      const err = new NetworkError('Network request failed', url);
+      logger.error('API/upload', '네트워크 연결 실패 (native)', err, {
+        ...ctx,
+        readyState: xhr.readyState,
+        status: xhr.status,
+      });
+      reject(err);
+    };
+
+    xhr.ontimeout = () => {
+      const err = new NetworkError('요청 시간이 초과되었습니다', url);
+      logger.error('API/upload', '요청 타임아웃', err, ctx);
+      reject(err);
+    };
+
     xhr.onload = () => {
       if (!resolved) {
-        reject(new Error('분석 작업 ID를 받지 못했습니다'));
+        const err = new ParseError('분석 작업 ID를 받지 못했습니다');
+        logger.error('API/upload', 'jobId 수신 실패', err, {
+          ...ctx,
+          statusCode: xhr.status,
+          responsePreview: xhr.responseText?.slice(0, 200),
+        });
+        reject(err);
       }
     };
 
@@ -142,15 +172,29 @@ export async function uploadDeed(
 }
 
 export async function getJob(jobId: string): Promise<DeedJob> {
-  const response = await fetch(`${BASE_URL}/api/deed/jobs/${jobId}`);
+  const url = `${BASE_URL}/api/deed/jobs/${jobId}`;
+
+  let response: Response;
+  try {
+    response = await fetch(url);
+  } catch (e) {
+    const err = new NetworkError('Network request failed', url);
+    logger.error('API/getJob', '네트워크 연결 실패', err, { jobId, url });
+    throw err;
+  }
 
   if (!response.ok) {
-    throw new Error(`조회 실패 (${response.status})`);
+    const err = new ApiError(`조회 실패 (${response.status})`, response.status, url, jobId);
+    logger.error('API/getJob', 'HTTP 오류 응답', err, { jobId, url, statusCode: response.status });
+    throw err;
   }
 
   const json: ApiResponse<DeedJob> = await response.json();
   if (json.type !== 'success' || !json.data) {
-    throw new Error(json.message ?? '응답 오류');
+    const err = new ParseError(json.message ?? '응답 오류', jobId);
+    logger.error('API/getJob', '응답 파싱 실패', err, { jobId, url });
+    throw err;
   }
+
   return json.data;
 }

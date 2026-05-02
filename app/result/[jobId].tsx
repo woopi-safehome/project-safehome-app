@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { getJob } from '@/services/api';
+import { logger } from '@/services/logger';
 import type { ChecklistItem, DeedAnalysis, DeedJob, LeaseCheckItem, LeaseCheckItemPriority, LeaseSpecificAnalysis, SafetyLevel } from '@/types/deed';
 
 // ─── 안전 등급 메타데이터 ────────────────────────────────────────────
@@ -43,6 +44,7 @@ export default function ResultScreen() {
         const data = await getJob(jobId);
         setJob(data);
       } catch (e) {
+        logger.error('Result', '결과 조회 실패', e, { jobId });
         setError(e instanceof Error ? e.message : '조회에 실패했습니다.');
       }
     };

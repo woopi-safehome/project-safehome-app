@@ -4,12 +4,23 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN ?? '',
+  environment: process.env.EXPO_PUBLIC_ENV ?? 'dev',
+  sendDefaultPii: false,
+  enableLogs: true,
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1,
+  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+});
 
 export const unstable_settings = {
   anchor: '(tabs)',
 };
 
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
@@ -24,4 +35,4 @@ export default function RootLayout() {
       <StatusBar style="auto" />
     </ThemeProvider>
   );
-}
+});
