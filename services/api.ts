@@ -42,8 +42,13 @@ export async function uploadDeed(
   try {
     response = await fetch(url, { method: 'POST', body: formData, signal });
   } catch (e) {
-    const err = new NetworkError('Network request failed', url);
-    logger.error('API/upload', '네트워크 연결 실패', err, ctx);
+    const err = new NetworkError('Network request failed', url, e);
+    logger.error('API/upload', '네트워크 연결 실패', err, {
+      ...ctx,
+      baseUrl: BASE_URL,
+      originalError: e instanceof Error ? e.message : String(e),
+      isAborted: signal?.aborted ?? false,
+    });
     throw err;
   }
 
@@ -101,8 +106,13 @@ export async function getJob(jobId: string): Promise<DeedJob> {
   try {
     response = await fetch(url);
   } catch (e) {
-    const err = new NetworkError('Network request failed', url);
-    logger.error('API/getJob', '네트워크 연결 실패', err, { jobId, url });
+    const err = new NetworkError('Network request failed', url, e);
+    logger.error('API/getJob', '네트워크 연결 실패', err, {
+      jobId,
+      url,
+      baseUrl: BASE_URL,
+      originalError: e instanceof Error ? e.message : String(e),
+    });
     throw err;
   }
 
