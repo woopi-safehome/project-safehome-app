@@ -38,80 +38,37 @@ export async function uploadDeed(
     formData.append('leaseType', leaseType);
   }
 
-  // 웹: fetch ReadableStream 사용
-  if (Platform.OS === 'web') {
-    let response: Response;
-    try {
-      response = await fetch(url, { method: 'POST', body: formData, signal });
-    } catch (e) {
-      const err = new NetworkError('Network request failed', url);
-      logger.error('API/upload', '네트워크 연결 실패 (web)', err, ctx);
-      throw err;
-    }
-
-    if (!response.ok) {
-      const err = new ApiError(`분석 요청 실패 (${response.status})`, response.status, url);
-      logger.error('API/upload', 'HTTP 오류 응답', err, { ...ctx, statusCode: response.status });
-      throw err;
-    }
-    if (!response.body) {
-      throw new ParseError('SSE 스트림을 읽을 수 없습니다');
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    try {
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
-
-        for (const line of lines) {
-          const trimmed = line.trim();
-          if (trimmed.startsWith('data:')) {
-            const raw = trimmed.slice(5).trim();
-            if (raw) {
-              try {
-                const event = JSON.parse(raw) as SseEvent;
-                if (event.jobId) {
-                  logger.info('API/upload', '업로드 성공', { ...ctx, jobId: event.jobId });
-                  return event.jobId;
-                }
-              } catch {
-                // ignore malformed lines
-              }
-            }
-          }
-        }
-      }
-    } finally {
-      reader.releaseLock();
-    }
-
-    throw new ParseError('분석 작업 ID를 받지 못했습니다');
+  let response: Response;
+  try {
+    response = await fetch(url, { method: 'POST', body: formData, signal });
+  } catch (e) {
+    const err = new NetworkError('Network request failed', url);
+    logger.error('API/upload', '네트워크 연결 실패', err, ctx);
+    throw err;
   }
 
-  // 네이티브: XHR onprogress로 SSE 스트리밍 처리
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', url);
+  if (!response.ok) {
+    const err = new ApiError(`분석 요청 실패 (${response.status})`, response.status, url);
+    logger.error('API/upload', 'HTTP 오류 응답', err, { ...ctx, statusCode: response.status });
+    throw err;
+  }
+  if (!response.body) {
+    throw new ParseError('SSE 스트림을 읽을 수 없습니다');
+  }
 
-    let resolved = false;
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
 
-    signal?.addEventListener('abort', () => {
-      xhr.abort();
-      reject(new Error('요청이 취소되었습니다'));
-    });
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    const parseBuffer = () => {
-      if (!xhr.responseText) return;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
 
-      const lines = xhr.responseText.split('\n');
       for (const line of lines) {
         const trimmed = line.trim();
         if (trimmed.startsWith('data:')) {
@@ -119,11 +76,9 @@ export async function uploadDeed(
           if (raw) {
             try {
               const event = JSON.parse(raw) as SseEvent;
-              if (event.jobId && !resolved) {
-                resolved = true;
+              if (event.jobId) {
                 logger.info('API/upload', '업로드 성공', { ...ctx, jobId: event.jobId });
-                resolve(event.jobId);
-                return;
+                return event.jobId;
               }
             } catch {
               // ignore malformed lines
@@ -131,44 +86,12 @@ export async function uploadDeed(
           }
         }
       }
-    };
+    }
+  } finally {
+    reader.releaseLock();
+  }
 
-    xhr.onreadystatechange = () => {
-      if (xhr.readyState === 3 || xhr.readyState === 4) {
-        parseBuffer();
-      }
-    };
-
-    xhr.onerror = () => {
-      const err = new NetworkError('Network request failed', url);
-      logger.error('API/upload', '네트워크 연결 실패 (native)', err, {
-        ...ctx,
-        readyState: xhr.readyState,
-        status: xhr.status,
-      });
-      reject(err);
-    };
-
-    xhr.ontimeout = () => {
-      const err = new NetworkError('요청 시간이 초과되었습니다', url);
-      logger.error('API/upload', '요청 타임아웃', err, ctx);
-      reject(err);
-    };
-
-    xhr.onload = () => {
-      if (!resolved) {
-        const err = new ParseError('분석 작업 ID를 받지 못했습니다');
-        logger.error('API/upload', 'jobId 수신 실패', err, {
-          ...ctx,
-          statusCode: xhr.status,
-          responsePreview: xhr.responseText?.slice(0, 200),
-        });
-        reject(err);
-      }
-    };
-
-    xhr.send(formData);
-  });
+  throw new ParseError('분석 작업 ID를 받지 못했습니다');
 }
 
 export async function getJob(jobId: string): Promise<DeedJob> {
