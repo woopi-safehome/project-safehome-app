@@ -1,98 +1,134 @@
-# SafeHome App
+# SafeHome App (Flutter)
 
-등기부등본 PDF를 업로드하면 AI가 권리 관계를 분석하고 안전 등급을 제공하는 모바일/웹 클라이언트입니다.
+등기부등본 AI 분석 모바일 앱 — React Native에서 Flutter로 전환된 프로젝트입니다.
 
 ## 기술 스택
 
-| 항목 | 버전 |
+| 항목 | 기술 |
 |------|------|
-| React Native | 0.81.5 |
-| Expo | 54.0.31 |
-| Expo Router | 6.0.21 |
-| TypeScript | 5.9 |
-| React | 19.1.0 |
+| 언어 | Dart 3.7+ |
+| 프레임워크 | Flutter 3.29+ |
+| 상태 관리 | flutter_riverpod |
+| 라우팅 | go_router |
+| HTTP | http (SSE 스트리밍 포함) |
+| 파일 선택 | file_picker |
+| 모델 코드 생성 | freezed + json_serializable |
+| 에러 트래킹 | sentry_flutter |
+| 플랫폼 | Android, iOS |
 
-## 사전 준비
+## 서비스 의존성
 
-- Node.js 18+
-- npm
+이 앱은 아래 서비스가 함께 실행되어야 합니다.
 
-API 서버(`project-safehome-api`, 포트 8080)가 먼저 실행되어 있어야 합니다.
-
-## 로컬 실행 방법
-
-### 의존성 설치
-
-```bash
-npm install
+```
+[App] Flutter
+  ↓  POST /api/deed/analyze (multipart + SSE)
+[API] Spring Boot  (http://localhost:8080)
+  ↓  POST /api/deed/analyze
+[AI API] Flask     (http://localhost:5000)
 ```
 
-### 웹 브라우저 (가장 간단)
+---
+
+## 개발 환경 설정 (최초 1회)
+
+### 1. 의존성 설치
 
 ```bash
-npm run web
+flutter pub get
 ```
 
-브라우저에서 `http://localhost:8081`로 접속합니다.
-
-### Expo Go (실제 기기)
+### 2. freezed 코드 생성
 
 ```bash
-npm start
+dart run build_runner build --delete-conflicting-outputs
 ```
 
-스마트폰에 [Expo Go](https://expo.dev/go) 앱을 설치한 뒤 QR 코드를 스캔합니다.
+---
+
+## 실행
 
 ### Android 에뮬레이터
 
 ```bash
-npm run android
+# 사용 가능한 에뮬레이터 목록 확인
+flutter emulators
+
+# 에뮬레이터 실행 (부팅까지 약 30초~1분 소요)
+flutter emulators --launch Pixel_6_API_36
+
+# 에뮬레이터 부팅 완료 후 앱 실행
+flutter run
 ```
 
-Android Studio와 에뮬레이터가 설치되어 있어야 합니다.
-에뮬레이터에서는 `localhost` 대신 `10.0.2.2`로 API 서버에 접근합니다 (자동 처리됨).
+> Android 에뮬레이터는 API URL이 자동으로 `http://10.0.2.2:8080` 으로 설정됩니다.
 
-> iOS 시뮬레이터는 macOS 전용입니다.
+> **처음 에뮬레이터 연결 시**: 에뮬레이터 화면에 "USB 디버깅 허용" 다이얼로그가 뜨면 "항상 허용" 체크 후 "허용" 탭
 
-## 전체 실행 순서
+### 실제 기기 (Android / iOS)
 
 ```bash
-# 1. AI API 서버 (Flask, 포트 5000) — 반드시 먼저 시작
-cd project-safehome-ai-api
-python app.py
+# 연결된 기기 확인
+flutter devices
 
-# 2. API 서버 (Spring Boot, 포트 8080)
-cd project-safehome-api
-./gradlew bootRun
-
-# 3. App (Expo, 포트 8081)
-cd project-safehome-app
-npm run web
+# 앱 실행 (API 서버 IP 직접 지정 필요)
+flutter run --dart-define=API_URL=http://<서버IP>:8080
 ```
 
-## 호출 흐름
+### 개발 서버 사용
 
-```
-App (8081)
-  └─ POST /api/deed/analyze  (PDF 업로드 → SSE 스트리밍 수신)
-       └─ API (8080)
-            └─ POST /api/deed/analyze  (AI 분석 요청)
-                 └─ AI API (5000)  →  OpenAI GPT
+```bash
+flutter run --dart-define=API_URL=http://devupii.store:38080
 ```
 
-분석 진행 상황은 SSE 이벤트로 실시간 수신되며, 완료 시 결과 화면으로 자동 이동합니다.
+---
+
+## 빌드
+
+```bash
+# 디버그 APK
+flutter build apk --debug
+
+# 릴리즈 APK
+flutter build apk --release
+
+# 정적 분석
+flutter analyze
+```
+
+---
+
+## 환경 변수 (`--dart-define`)
+
+| 변수 | 기본값 | 설명 |
+|------|--------|------|
+| `API_URL` | 자동 감지 | 백엔드 API URL (Android 에뮬레이터: `10.0.2.2:8080`, 나머지: `localhost:8080`) |
+| `SENTRY_DSN` | 빈 문자열 | Sentry DSN (미설정 시 비활성화) |
+| `APP_ENV` | `dev` | Sentry 환경 레이블 |
+
+---
 
 ## 화면 구성
 
 | 화면 | 경로 | 설명 |
 |------|------|------|
-| 홈 | `/` | 서비스 소개 및 업로드 진입 |
-| 업로드 | `/upload` | PDF 파일 선택 및 분석 시작 |
-| 결과 | `/result/{jobId}` | 안전 등급 및 분석 결과 표시 |
+| 홈 | `/` | 서비스 소개 및 분석 시작 |
+| 업로드 | `/upload` | PDF 파일 선택 + 임대 유형 선택 |
+| 분석 중 | `/analyzing/:jobId` | AI 분석 진행 중 (펄스 애니메이션 + 폴링) |
+| 결과 | `/result/:jobId` | 종합 분석 결과 표시 |
 
-## 주의사항
+---
 
-- **실행 순서**: AI API → API 서버 → App 순서로 시작해야 합니다.
-- **웹 브라우저**: `expo-document-picker`가 웹에서 blob URL을 반환하므로, `services/api.ts`에서 `Platform.OS === 'web'` 분기로 Blob 변환 처리를 합니다.
-- **CORS**: API 서버에 CORS 설정이 포함되어 있어 `localhost:8081` → `localhost:8080` 크로스 오리진 요청이 허용됩니다.
-- **node_modules 변경 후**: `npm install && expo start --clear`로 캐시를 초기화하세요.
+## 프로젝트 구조
+
+```
+lib/
+├── main.dart              # 진입점
+├── app.dart               # 앱 + 라우터
+├── core/                  # 공통 인프라 (색상, 테마, API, 에러)
+├── models/deed.dart       # 등기부등본 도메인 모델 (freezed)
+├── features/              # 화면별 Notifier + Screen
+└── widgets/               # 공통 위젯
+```
+
+자세한 아키텍처 가이드는 [CLAUDE.md](./CLAUDE.md)를 참조하세요.

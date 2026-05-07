@@ -1,0 +1,45 @@
+name: project_safehome_app
+description: "SafeHome - 등기부등본 AI 분석 앱"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # 상태 관리
+  flutter_riverpod: ^2.6.1
+
+  # 라우팅
+  go_router: ^14.0.0
+
+  # HTTP / API
+  http: ^1.2.2
+
+  # 파일 선택
+  file_picker: ^8.1.7
+
+  # 에러 트래킹
+  sentry_flutter: ^8.14.2
+
+  # 모델 코드 생성 (런타임 어노테이션)
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+  # 코드 생성
+  build_runner: ^2.4.14
+  freezed: ^2.5.7
+  json_serializable: ^6.8.0
+
+flutter:
+  uses-material-design: true
