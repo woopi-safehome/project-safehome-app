@@ -18,9 +18,12 @@
 
 ```
 lib/
-├── main.dart                      # 진입점: Sentry 초기화 + ProviderScope
+├── main.dart                      # dev 진입점: AppFlavor.dev + Sentry(debug=true)
+├── main_prd.dart                  # prd 진입점: AppFlavor.prd + Sentry
 ├── app.dart                       # SafeHomeApp + GoRouter 설정
 ├── core/
+│   ├── config/
+│   │   └── app_config.dart        # AppFlavor(dev/prd), sentryDsn, tracesSampleRate
 │   ├── constants/
 │   │   ├── app_colors.dart        # 색상 상수 (primary, safe/caution/danger 등)
 │   │   └── app_theme.dart         # ThemeData (light/dark)
@@ -72,19 +75,29 @@ dart run build_runner build --delete-conflicting-outputs
 # 에뮬레이터 실행
 flutter emulators --launch Pixel_6_API_36
 
-# 개발 실행 (기본 localhost:8080)
-flutter run
+# ── dev 환경 ──────────────────────────────────────────────────
+# 개발 실행 (진입점: main.dart = AppFlavor.dev)
+flutter run --dart-define=SENTRY_DSN=<your-dsn>
 
-# API 서버 URL 지정
-flutter run --dart-define=API_URL=http://devupii.store:38080
+# API 서버 URL 직접 지정
+flutter run --dart-define=SENTRY_DSN=<your-dsn> \
+            --dart-define=API_URL=http://devupii.store:38080
 
-# Sentry DSN 지정
-flutter run --dart-define=SENTRY_DSN=https://...@sentry.io/...
+# dev APK 빌드
+flutter build apk --debug \
+  --dart-define=SENTRY_DSN=<your-dsn>
 
-# APK 빌드
-flutter build apk --debug
-flutter build apk --release
+# ── prd 환경 ──────────────────────────────────────────────────
+# prd 실행 (진입점: main_prd.dart = AppFlavor.prd)
+flutter run -t lib/main_prd.dart \
+  --dart-define=SENTRY_DSN=<your-dsn>
 
+# prd APK 빌드
+flutter build apk --release \
+  -t lib/main_prd.dart \
+  --dart-define=SENTRY_DSN=<your-dsn>
+
+# ── 공통 ──────────────────────────────────────────────────────
 # 정적 분석
 flutter analyze
 
@@ -107,8 +120,19 @@ flutter clean && flutter pub get
 | 변수 | 기본값 | 설명 |
 |------|--------|------|
 | `API_URL` | 자동 감지 | Android 에뮬레이터: `10.0.2.2:8080`, 기타: `localhost:8080` |
-| `SENTRY_DSN` | 빈 문자열 | Sentry DSN (미설정 시 Sentry 비활성화) |
-| `APP_ENV` | `dev` | Sentry 환경 레이블 |
+| `SENTRY_DSN` | 빈 문자열 | **필수** — 미설정 시 Sentry 비활성화. dev/prd 모두 주입 필요 |
+
+> `APP_ENV` 는 더 이상 사용하지 않음. 환경은 진입점(`main.dart` / `main_prd.dart`)으로 결정됨.
+
+## 환경별 동작 차이
+
+| 항목 | dev (`main.dart`) | prd (`main_prd.dart`) |
+|------|-------------------|----------------------|
+| `AppFlavor` | `dev` | `prd` |
+| Sentry `environment` | `"dev"` | `"prd"` |
+| `tracesSampleRate` | `1.0` (전체 트레이싱) | `0.1` (10% 샘플링) |
+| `options.debug` | `true` (Sentry 로그 출력) | `false` |
+| `AppLogger.info` 출력 | 항상 출력 | release 빌드 시 출력 안 함 |
 
 ## 아키텍처 패턴
 

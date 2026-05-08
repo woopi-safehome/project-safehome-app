@@ -7,7 +7,7 @@ import 'core/config/app_config.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  AppConfig.init(AppFlavor.dev);
+  AppConfig.init(AppFlavor.prd);
 
   await SentryFlutter.init(
     (options) {
@@ -15,7 +15,6 @@ Future<void> main() async {
       options.environment = AppConfig.instance.envName;
       options.tracesSampleRate = AppConfig.instance.tracesSampleRate;
       options.sendDefaultPii = false;
-      options.debug = true;
     },
     appRunner: () => runApp(
       const ProviderScope(

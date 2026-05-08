@@ -1,9 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
+import '../config/app_config.dart';
+
 class AppLogger {
   static void info(String tag, String message, {Map<String, dynamic>? context}) {
-    if (kDebugMode) {
+    if (kDebugMode || AppConfig.instance.isDev) {
       debugPrint('[INFO][$tag] $message ${context ?? ''}');
     }
   }
