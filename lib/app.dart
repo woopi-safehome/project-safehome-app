@@ -4,12 +4,22 @@ import 'package:go_router/go_router.dart';
 import 'core/constants/app_theme.dart';
 import 'features/analyzing/analyzing_screen.dart';
 import 'features/home/home_screen.dart';
+import 'features/login/login_screen.dart';
 import 'features/result/result_screen.dart';
+import 'features/splash/splash_screen.dart';
 import 'features/upload/upload_screen.dart';
 
 final _router = GoRouter(
-  initialLocation: '/',
+  initialLocation: '/splash',
   routes: [
+    GoRoute(
+      path: '/splash',
+      builder: (_, __) => const SplashScreen(),
+    ),
+    GoRoute(
+      path: '/login',
+      builder: (_, __) => const LoginScreen(),
+    ),
     GoRoute(
       path: '/',
       builder: (_, __) => const HomeScreen(),

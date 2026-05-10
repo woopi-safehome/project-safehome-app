@@ -10,123 +10,405 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Hero
-              const Text(
-                '🏠',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 56),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'SafeHome',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                '등기부등본 AI 분석으로\n안전한 부동산 거래를 시작하세요',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16,
-                  color: AppColors.textSecondary,
-                  height: 1.5,
-                ),
-              ),
-              const SizedBox(height: 32),
+      body: CustomScrollView(
+        slivers: [
+          _buildAppBar(),
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _HeroBanner(),
+                const SizedBox(height: 24),
+                _UploadCTACard(),
+                const SizedBox(height: 24),
+                _HowItWorksSection(),
+                const SizedBox(height: 24),
+                _DisclaimerBox(),
+                const SizedBox(height: 36),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-              // Info Box
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: AppColors.primaryLight,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
-                ),
-                child: Column(
-                  children: const [
-                    _InfoItem(icon: '📄', title: 'PDF 업로드', desc: '등기부등본 PDF 파일을 선택하세요'),
-                    SizedBox(height: 16),
-                    _InfoItem(icon: '🤖', title: 'AI 분석', desc: 'GPT-4가 권리관계를 꼼꼼히 분석합니다'),
-                    SizedBox(height: 16),
-                    _InfoItem(icon: '🔍', title: '위험 감지', desc: '가압류, 근저당 등 위험 요소를 파악합니다'),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 32),
+  SliverAppBar _buildAppBar() {
+    return SliverAppBar(
+      backgroundColor: AppColors.primary,
+      floating: true,
+      snap: true,
+      elevation: 0,
+      toolbarHeight: 60,
+      title: const Row(
+        children: [
+          Icon(Icons.shield_rounded, color: Colors.white, size: 24),
+          SizedBox(width: 8),
+          Text(
+            'SafeHome',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.notifications_outlined, color: Colors.white),
+          onPressed: () {},
+        ),
+        const SizedBox(width: 4),
+      ],
+    );
+  }
+}
 
-              // CTA Button
-              ElevatedButton(
-                onPressed: () => context.push('/upload'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+// ─── Hero Banner ──────────────────────────────────────────────────────────────
+
+class _HeroBanner extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [AppColors.primary, AppColors.secondary],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.auto_awesome, size: 13, color: Colors.white.withValues(alpha: 0.9)),
+                const SizedBox(width: 5),
+                Text(
+                  'AI 기반 등기부등본 분석',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                child: const Text(
-                  '등기부등본 분석하기',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Disclaimer
-              const Text(
-                '본 서비스는 참고용 정보를 제공합니다. 중요한 부동산 거래 시 반드시 전문가와 상담하시기 바랍니다.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11, color: AppColors.textMuted, height: 1.5),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+          const SizedBox(height: 14),
+          const Text(
+            '안전한 거래를 위한\n스마트한 선택',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 26,
+              fontWeight: FontWeight.w800,
+              height: 1.3,
+              letterSpacing: -0.5,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '등기부등본을 올리면 AI가 권리관계를\n꼼꼼하게 분석해 드립니다',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.78),
+              fontSize: 14,
+              height: 1.6,
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _InfoItem extends StatelessWidget {
-  final String icon;
-  final String title;
-  final String desc;
+// ─── Upload CTA Card ─────────────────────────────────────────────────────────
 
-  const _InfoItem({required this.icon, required this.title, required this.desc});
+class _UploadCTACard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 2, bottom: 14),
+            child: Text(
+              '지금 바로 분석하기',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.2,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () => context.push('/upload'),
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.07),
+                    blurRadius: 20,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Column(
+                children: [
+                  // 분석 시작 버튼
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Container(
+                      width: double.infinity,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [AppColors.primary, AppColors.secondary],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.primary.withValues(alpha: 0.3),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.search_rounded, color: Colors.white, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            '분석 시작하기',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── How It Works ─────────────────────────────────────────────────────────────
+
+class _HowItWorksSection extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(left: 2, bottom: 14),
+            child: Text(
+              '이렇게 분석해드려요',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+                letterSpacing: -0.2,
+              ),
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.05),
+                  blurRadius: 16,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: const [
+                _StepRow(
+                  step: '01',
+                  icon: Icons.picture_as_pdf_rounded,
+                  color: AppColors.primary,
+                  title: 'PDF 업로드',
+                  description: '등기부등본 PDF 파일을 선택해 주세요',
+                  isLast: false,
+                ),
+                _StepRow(
+                  step: '02',
+                  icon: Icons.psychology_rounded,
+                  color: AppColors.secondary,
+                  title: 'AI 자동 분석',
+                  description: 'AI가 권리관계, 근저당, 위험 요소를 분석합니다',
+                  isLast: false,
+                ),
+                _StepRow(
+                  step: '03',
+                  icon: Icons.task_alt_rounded,
+                  color: AppColors.safe,
+                  title: '결과 확인',
+                  description: '안전 등급과 상세 분석 결과를 확인하세요',
+                  isLast: true,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StepRow extends StatelessWidget {
+  final String step;
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String description;
+  final bool isLast;
+
+  const _StepRow({
+    required this.step,
+    required this.icon,
+    required this.color,
+    required this.title,
+    required this.description,
+    required this.isLast,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(icon, style: const TextStyle(fontSize: 24)),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+        Column(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 22, color: color),
+            ),
+            if (!isLast)
+              Container(
+                width: 2,
+                height: 36,
+                margin: const EdgeInsets.symmetric(vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.border,
+                  borderRadius: BorderRadius.circular(1),
                 ),
               ),
-              Text(
-                desc,
-                style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
-              ),
-            ],
+          ],
+        ),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(top: 10, bottom: isLast ? 0 : 36),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      step,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: color,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  description,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textSecondary,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─── Disclaimer ───────────────────────────────────────────────────────────────
+
+class _DisclaimerBox extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.primaryLight,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline_rounded, size: 16, color: AppColors.primary.withValues(alpha: 0.8)),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              '본 서비스의 분석 결과는 참고용이며, 중요한 거래 결정 전에는 반드시 전문가(법무사, 공인중개사)와 상담하시기 바랍니다.',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+                height: 1.6,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

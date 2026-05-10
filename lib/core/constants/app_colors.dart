@@ -3,12 +3,18 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  // Primary
-  static const primary = Color(0xFF2563EB);
-  static const primaryLight = Color(0xFFEFF6FF);
+  // Primary — 네이비
+  static const primary = Color(0xFF1A3A6B);
+  static const primaryLight = Color(0xFFEAEFF7);
+  static const primaryDark = Color(0xFF122952);
+
+  // Secondary — Teal
+  static const secondary = Color(0xFF006D77);
+  static const secondaryLight = Color(0xFFE0F4F6);
+  static const secondaryDark = Color(0xFF004F57);
 
   // Background
-  static const background = Color(0xFFF8FAFC);
+  static const background = Color(0xFFF5F7FA);
   static const surface = Color(0xFFFFFFFF);
 
   // Text
