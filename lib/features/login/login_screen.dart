@@ -1,13 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
+import 'login_notifier.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends ConsumerWidget {
   const LoginScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // 상태 변화 감지 → 화면 이동 / 에러 토스트
+    ref.listen(loginProvider, (_, state) {
+      switch (state) {
+        case LoginSuccess(:final isNewUser):
+          context.go(isNewUser ? '/onboarding' : '/');
+        case LoginError(:final message):
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(message),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        default:
+          break;
+      }
+    });
+
+    final isLoading = ref.watch(loginProvider) is LoginLoading;
+
     return Scaffold(
       backgroundColor: AppColors.primary,
       body: Column(
@@ -19,7 +40,6 @@ class LoginScreen extends StatelessWidget {
               bottom: false,
               child: Stack(
                 children: [
-                  // 배경 장식 원
                   Positioned(
                     top: -30,
                     right: -50,
@@ -74,15 +94,17 @@ class LoginScreen extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(height: 28),
-                        // 신뢰 지표 3개
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            _TrustChip(icon: Icons.verified_rounded, label: '정확한 분석'),
+                            _TrustChip(
+                                icon: Icons.verified_rounded, label: '정확한 분석'),
                             const SizedBox(width: 8),
-                            _TrustChip(icon: Icons.bolt_rounded, label: '빠른 결과'),
+                            _TrustChip(
+                                icon: Icons.bolt_rounded, label: '빠른 결과'),
                             const SizedBox(width: 8),
-                            _TrustChip(icon: Icons.lock_rounded, label: '안전 보관'),
+                            _TrustChip(
+                                icon: Icons.lock_rounded, label: '안전 보관'),
                           ],
                         ),
                       ],
@@ -127,13 +149,18 @@ class LoginScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 28),
 
-                    // 카카오 로그인 버튼
-                    _KakaoButton(onTap: () => context.go('/')),
+                    _KakaoButton(
+                      isLoading: isLoading,
+                      onTap: isLoading
+                          ? null
+                          : () =>
+                              ref.read(loginProvider.notifier).loginWithKakao(),
+                    ),
                     const SizedBox(height: 14),
 
-                    // 둘러보기
                     TextButton(
-                      onPressed: () => context.go('/'),
+                      onPressed:
+                          isLoading ? null : () => context.go('/'),
                       style: TextButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         foregroundColor: AppColors.textMuted,
@@ -146,7 +173,6 @@ class LoginScreen extends StatelessWidget {
 
                     const Spacer(),
 
-                    // 약관
                     Padding(
                       padding: const EdgeInsets.only(bottom: 20),
                       child: Text(
@@ -203,52 +229,68 @@ class _TrustChip extends StatelessWidget {
 }
 
 class _KakaoButton extends StatelessWidget {
-  final VoidCallback onTap;
-  const _KakaoButton({required this.onTap});
+  final bool isLoading;
+  final VoidCallback? onTap;
+  const _KakaoButton({required this.isLoading, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        height: 56,
-        decoration: BoxDecoration(
-          color: const Color(0xFFFEE500),
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFFEE500).withValues(alpha: 0.4),
-              blurRadius: 12,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 26,
-              height: 26,
-              decoration: const BoxDecoration(
-                color: Color(0xFF3C1E1E),
-                shape: BoxShape.circle,
+      child: AnimatedOpacity(
+        opacity: isLoading ? 0.7 : 1.0,
+        duration: const Duration(milliseconds: 150),
+        child: Container(
+          height: 56,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFEE500),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFFFEE500).withValues(alpha: 0.4),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
               ),
-              child: const Icon(
-                Icons.chat_bubble_rounded,
-                size: 14,
-                color: Color(0xFFFEE500),
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Text(
-              '카카오로 시작하기',
-              style: TextStyle(
-                color: Color(0xFF3C1E1E),
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
+            ],
+          ),
+          child: Center(
+            child: isLoading
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Color(0xFF3C1E1E),
+                    ),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 26,
+                        height: 26,
+                        decoration: const BoxDecoration(
+                          color: Color(0xFF3C1E1E),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.chat_bubble_rounded,
+                          size: 14,
+                          color: Color(0xFFFEE500),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      const Text(
+                        '카카오로 시작하기',
+                        style: TextStyle(
+                          color: Color(0xFF3C1E1E),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+          ),
         ),
       ),
     );

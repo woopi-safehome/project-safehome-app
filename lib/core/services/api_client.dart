@@ -1,13 +1,12 @@
 import 'dart:convert';
-import 'dart:io';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
 import '../../models/deed.dart';
 import '../errors/app_exceptions.dart';
 import 'logger.dart';
+import 'token_storage.dart';
 
 const String _tag = 'ApiClient';
 
@@ -24,6 +23,12 @@ class ApiClient {
 
   ApiClient({http.Client? client}) : _client = client ?? http.Client();
 
+  Future<Map<String, String>> _authHeaders() async {
+    final token = await TokenStorage.getAccessToken();
+    if (token == null) return {};
+    return {'Authorization': 'Bearer $token'};
+  }
+
   /// PDF 업로드 → SSE 스트림에서 jobId 추출
   Future<String> uploadDeed(
     String filePath,
@@ -35,7 +40,8 @@ class ApiClient {
     AppLogger.info(_tag, 'uploadDeed start', context: {'uri': uri.toString()});
 
     final request = http.MultipartRequest('POST', uri)
-      ..headers['Accept'] = 'text/event-stream';
+      ..headers['Accept'] = 'text/event-stream'
+      ..headers.addAll(await _authHeaders());
 
     if (leaseType != null) {
       request.fields['leaseType'] = leaseType;
@@ -120,7 +126,7 @@ class ApiClient {
 
     final http.Response response;
     try {
-      response = await _client.get(uri);
+      response = await _client.get(uri, headers: await _authHeaders());
     } catch (e) {
       throw NetworkException('서버에 연결할 수 없습니다.', uri.toString(), cause: e);
     }
@@ -144,6 +150,45 @@ class ApiClient {
       return DeedJob.fromJson(data);
     } catch (e) {
       throw ParseException('응답 파싱 실패: $e', jobId: jobId);
+    }
+  }
+
+  /// 내 분석 이력 목록 조회
+  Future<DeedJobsPage> getMyJobs({int page = 0, int size = 20}) async {
+    final uri = Uri.parse('$_baseUrl/api/deed/jobs').replace(
+      queryParameters: {'page': '$page', 'size': '$size'},
+    );
+
+    final http.Response response;
+    try {
+      response = await _client.get(uri, headers: await _authHeaders());
+    } catch (e) {
+      throw NetworkException('서버에 연결할 수 없습니다.', uri.toString(), cause: e);
+    }
+
+    if (response.statusCode != 200) {
+      throw ApiException(
+        'HTTP ${response.statusCode}',
+        response.statusCode,
+        uri.toString(),
+      );
+    }
+
+    try {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = json['data'] as Map<String, dynamic>;
+      final itemsJson = data['items'] as List<dynamic>;
+      final pagination = data['pagination'] as Map<String, dynamic>;
+
+      return DeedJobsPage(
+        items: itemsJson
+            .map((e) => DeedJobSummary.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        hasNext: pagination['hasNext'] as bool,
+        totalElements: (pagination['totalElements'] as num).toInt(),
+      );
+    } catch (e) {
+      throw ParseException('응답 파싱 실패: $e');
     }
   }
 }

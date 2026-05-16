@@ -1,0 +1,5 @@
+{
+  "KAKAO_NATIVE_APP_KEY": "여기에_네이티브_앱_키_입력",
+  "SENTRY_DSN": "여기에_Sentry_DSN_입력",
+  "API_URL": "https://api.safehome.com"
+}

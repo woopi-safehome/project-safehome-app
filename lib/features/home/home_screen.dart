@@ -1,39 +1,68 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
+import 'account_notifier.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(accountProvider, (_, state) {
+      switch (state) {
+        case AccountDone():
+          context.go('/login');
+        case AccountError(:final message):
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(message),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        default:
+          break;
+      }
+    });
+
+    final isLoading = ref.watch(accountProvider) is AccountLoading;
+
     return Scaffold(
       backgroundColor: AppColors.background,
-      body: CustomScrollView(
-        slivers: [
-          _buildAppBar(),
-          SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _HeroBanner(),
-                const SizedBox(height: 24),
-                _UploadCTACard(),
-                const SizedBox(height: 24),
-                _HowItWorksSection(),
-                const SizedBox(height: 24),
-                _DisclaimerBox(),
-                const SizedBox(height: 36),
-              ],
-            ),
+      body: Stack(
+        children: [
+          CustomScrollView(
+            slivers: [
+              _buildAppBar(context, ref),
+              SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _HeroBanner(),
+                    const SizedBox(height: 24),
+                    _UploadCTACard(),
+                    const SizedBox(height: 24),
+                    _HowItWorksSection(),
+                    const SizedBox(height: 24),
+                    _DisclaimerBox(),
+                    const SizedBox(height: 36),
+                  ],
+                ),
+              ),
+            ],
           ),
+          if (isLoading)
+            const ColoredBox(
+              color: Colors.black26,
+              child: Center(child: CircularProgressIndicator()),
+            ),
         ],
       ),
     );
   }
 
-  SliverAppBar _buildAppBar() {
+  SliverAppBar _buildAppBar(BuildContext context, WidgetRef ref) {
     return SliverAppBar(
       backgroundColor: AppColors.primary,
       floating: true,
@@ -57,14 +86,95 @@ class HomeScreen extends StatelessWidget {
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.notifications_outlined, color: Colors.white),
-          onPressed: () {},
+          icon: const Icon(Icons.history_rounded, color: Colors.white),
+          tooltip: '분석 이력',
+          onPressed: () => context.push('/my-page'),
+        ),
+        PopupMenuButton<_AccountAction>(
+          icon: const Icon(Icons.account_circle_outlined, color: Colors.white),
+          color: Colors.white,
+          onSelected: (action) => _onAccountAction(context, ref, action),
+          itemBuilder: (_) => const [
+            PopupMenuItem(
+              value: _AccountAction.logout,
+              child: Row(
+                children: [
+                  Icon(Icons.logout_rounded,
+                      size: 18, color: AppColors.textSecondary),
+                  SizedBox(width: 10),
+                  Text('로그아웃'),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: _AccountAction.withdraw,
+              child: Row(
+                children: [
+                  Icon(Icons.person_remove_outlined,
+                      size: 18, color: AppColors.danger),
+                  SizedBox(width: 10),
+                  Text('회원탈퇴',
+                      style: TextStyle(color: AppColors.danger)),
+                ],
+              ),
+            ),
+          ],
         ),
         const SizedBox(width: 4),
       ],
     );
   }
+
+  void _onAccountAction(
+      BuildContext context, WidgetRef ref, _AccountAction action) {
+    switch (action) {
+      case _AccountAction.logout:
+        showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('로그아웃'),
+            content: const Text('로그아웃 하시겠습니까?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('취소'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('로그아웃'),
+              ),
+            ],
+          ),
+        ).then((confirmed) {
+          if (confirmed == true) ref.read(accountProvider.notifier).logout();
+        });
+      case _AccountAction.withdraw:
+        showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('회원탈퇴'),
+            content: const Text('탈퇴 시 모든 분석 기록이 삭제됩니다.\n정말 탈퇴하시겠습니까?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('취소'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                style:
+                    TextButton.styleFrom(foregroundColor: AppColors.danger),
+                child: const Text('탈퇴'),
+              ),
+            ],
+          ),
+        ).then((confirmed) {
+          if (confirmed == true) ref.read(accountProvider.notifier).withdraw();
+        });
+    }
+  }
 }
+
+enum _AccountAction { logout, withdraw }
 
 // ─── Hero Banner ──────────────────────────────────────────────────────────────
 
@@ -92,7 +202,8 @@ class _HeroBanner extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.auto_awesome, size: 13, color: Colors.white.withValues(alpha: 0.9)),
+                Icon(Icons.auto_awesome,
+                    size: 13, color: Colors.white.withValues(alpha: 0.9)),
                 const SizedBox(width: 5),
                 Text(
                   'AI 기반 등기부등본 분석',
@@ -167,47 +278,42 @@ class _UploadCTACard extends StatelessWidget {
                   ),
                 ],
               ),
-              child: Column(
-                children: [
-                  // 분석 시작 버튼
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Container(
-                      width: double.infinity,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [AppColors.primary, AppColors.secondary],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.primary.withValues(alpha: 0.3),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.search_rounded, color: Colors.white, size: 20),
-                          SizedBox(width: 8),
-                          Text(
-                            '분석 시작하기',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Container(
+                  width: double.infinity,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [AppColors.primary, AppColors.secondary],
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
                     ),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: AppColors.primary.withValues(alpha: 0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
                   ),
-                ],
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.search_rounded, color: Colors.white, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        '분석 시작하기',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -252,8 +358,8 @@ class _HowItWorksSection extends StatelessWidget {
               ],
             ),
             padding: const EdgeInsets.all(20),
-            child: Column(
-              children: const [
+            child: const Column(
+              children: [
                 _StepRow(
                   step: '01',
                   icon: Icons.picture_as_pdf_rounded,
@@ -395,7 +501,8 @@ class _DisclaimerBox extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline_rounded, size: 16, color: AppColors.primary.withValues(alpha: 0.8)),
+          Icon(Icons.info_outline_rounded,
+              size: 16, color: AppColors.primary.withValues(alpha: 0.8)),
           const SizedBox(width: 10),
           const Expanded(
             child: Text(

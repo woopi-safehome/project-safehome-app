@@ -1,9 +1,17 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) load(f.inputStream())
+}
+val kakaoNativeAppKey: String = localProps.getProperty("kakaoNativeAppKey", "")
 
 android {
     namespace = "com.woopi.project_safehome_app"
@@ -28,6 +36,7 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        manifestPlaceholders["kakaoScheme"] = "kakao$kakaoNativeAppKey"
     }
 
     buildTypes {

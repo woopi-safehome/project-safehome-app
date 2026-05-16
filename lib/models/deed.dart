@@ -227,6 +227,36 @@ class LeaseSpecificAnalysis with _$LeaseSpecificAnalysis {
       _$LeaseSpecificAnalysisFromJson(json);
 }
 
+// ─── Job Summary (목록용) ──────────────────────────────────────────────────────
+
+@freezed
+class DeedJobSummary with _$DeedJobSummary {
+  const factory DeedJobSummary({
+    required String jobId,
+    required String fileName,
+    required int fileSize,
+    required JobStatus status,
+    SafetyLevel? safetyLevel,
+    String? address,
+    String? createdAt,
+  }) = _DeedJobSummary;
+
+  factory DeedJobSummary.fromJson(Map<String, dynamic> json) =>
+      _$DeedJobSummaryFromJson(json);
+}
+
+class DeedJobsPage {
+  final List<DeedJobSummary> items;
+  final bool hasNext;
+  final int totalElements;
+
+  const DeedJobsPage({
+    required this.items,
+    required this.hasNext,
+    required this.totalElements,
+  });
+}
+
 // ─── Deed Analysis ────────────────────────────────────────────────────────────
 
 @freezed

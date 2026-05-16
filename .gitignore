@@ -41,3 +41,6 @@ ios/Runner/GeneratedPluginRegistrant.*
 .env
 .env.local
 .env*.local
+
+# Dart defines (실제 키 값 포함 — 커밋 금지)
+dart_defines/*.json

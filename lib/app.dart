@@ -5,11 +5,13 @@ import 'core/constants/app_theme.dart';
 import 'features/analyzing/analyzing_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/login/login_screen.dart';
+import 'features/my_page/my_page_screen.dart';
+import 'features/onboarding/onboarding_screen.dart';
 import 'features/result/result_screen.dart';
 import 'features/splash/splash_screen.dart';
 import 'features/upload/upload_screen.dart';
 
-final _router = GoRouter(
+final appRouter = GoRouter(
   initialLocation: '/splash',
   routes: [
     GoRoute(
@@ -19,6 +21,10 @@ final _router = GoRouter(
     GoRoute(
       path: '/login',
       builder: (_, __) => const LoginScreen(),
+    ),
+    GoRoute(
+      path: '/onboarding',
+      builder: (_, __) => const OnboardingScreen(),
     ),
     GoRoute(
       path: '/',
@@ -40,6 +46,10 @@ final _router = GoRouter(
         jobId: state.pathParameters['jobId']!,
       ),
     ),
+    GoRoute(
+      path: '/my-page',
+      builder: (_, __) => const MyPageScreen(),
+    ),
   ],
 );
 
@@ -52,7 +62,7 @@ class SafeHomeApp extends StatelessWidget {
       title: 'SafeHome',
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      routerConfig: _router,
+      routerConfig: appRouter,
       debugShowCheckedModeBanner: false,
     );
   }

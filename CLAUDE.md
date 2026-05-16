@@ -8,7 +8,8 @@
 | 프레임워크 | Flutter 3.29+ |
 | 상태 관리 | flutter_riverpod (Notifier / FamilyNotifier) |
 | 라우팅 | go_router |
-| HTTP | http (SSE 스트리밍 포함) |
+| HTTP | http (SSE 스트리밍 포함), dio (인증 인터셉터) |
+| 인증 | kakao_flutter_sdk_user, flutter_secure_storage |
 | 파일 선택 | file_picker |
 | 모델 코드 생성 | freezed + json_serializable |
 | 에러 트래킹 | sentry_flutter |
@@ -76,26 +77,26 @@ dart run build_runner build --delete-conflicting-outputs
 flutter emulators --launch Pixel_6_API_36
 
 # ── dev 환경 ──────────────────────────────────────────────────
-# 개발 실행 (진입점: main.dart = AppFlavor.dev)
-flutter run --dart-define=SENTRY_DSN=<your-dsn>
+# 개발 실행 (dart_defines/dev.json 사용 권장)
+flutter run --dart-define-from-file=dart_defines/dev.json
 
-# API 서버 URL 직접 지정
-flutter run --dart-define=SENTRY_DSN=<your-dsn> \
+# API 서버 URL 추가 지정 시
+flutter run --dart-define-from-file=dart_defines/dev.json \
             --dart-define=API_URL=http://devupii.store:38080
 
 # dev APK 빌드
 flutter build apk --debug \
-  --dart-define=SENTRY_DSN=<your-dsn>
+  --dart-define-from-file=dart_defines/dev.json
 
 # ── prd 환경 ──────────────────────────────────────────────────
 # prd 실행 (진입점: main_prd.dart = AppFlavor.prd)
 flutter run -t lib/main_prd.dart \
-  --dart-define=SENTRY_DSN=<your-dsn>
+  --dart-define-from-file=dart_defines/prd.json
 
 # prd APK 빌드
 flutter build apk --release \
   -t lib/main_prd.dart \
-  --dart-define=SENTRY_DSN=<your-dsn>
+  --dart-define-from-file=dart_defines/prd.json
 
 # ── 공통 ──────────────────────────────────────────────────────
 # 정적 분석
@@ -115,12 +116,23 @@ flutter clean && flutter pub get
 > `android/build.gradle.kts`에 `allprojects` 블록으로 최소 languageVersion을 1.9로 강제 설정함.
 > Kotlin 버전을 변경할 때는 이 설정도 함께 확인할 것.
 
-## 환경 변수 (--dart-define)
+## 환경 변수
+
+### dart_defines/dev.json (--dart-define-from-file, Git 제외)
 
 | 변수 | 기본값 | 설명 |
 |------|--------|------|
+| `KAKAO_NATIVE_APP_KEY` | — | **필수** — 카카오 디벨로퍼스 Native 앱 키 |
+| `SENTRY_DSN` | 빈 문자열 | 미설정 시 Sentry 비활성화 |
 | `API_URL` | 자동 감지 | Android 에뮬레이터: `10.0.2.2:8080`, 기타: `localhost:8080` |
-| `SENTRY_DSN` | 빈 문자열 | **필수** — 미설정 시 Sentry 비활성화. dev/prd 모두 주입 필요 |
+
+템플릿: `dart_defines/dev.json.example` 참고
+
+### android/local.properties (Git 제외)
+
+| 키 | 설명 |
+|----|------|
+| `kakaoNativeAppKey` | AndroidManifest OAuth 스킴 주입용 (dart_defines와 동일한 값) |
 
 > `APP_ENV` 는 더 이상 사용하지 않음. 환경은 진입점(`main.dart` / `main_prd.dart`)으로 결정됨.
 
