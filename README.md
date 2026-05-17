@@ -140,13 +140,10 @@ flutter run --dart-define-from-file=dart_defines/dev.json \
 
 ```bash
 # 디버그 APK (dev)
-flutter build apk --debug \
-  --dart-define-from-file=dart_defines/dev.json
+flutter build apk --debug --dart-define-from-file=dart_defines/dev.json
 
 # 릴리즈 APK (prd)
-flutter build apk --release \
-  -t lib/main_prd.dart \
-  --dart-define-from-file=dart_defines/prd.json
+flutter build apk --release -t lib/main_prd.dart --dart-define-from-file=dart_defines/prd.json
 
 # 정적 분석
 flutter analyze
