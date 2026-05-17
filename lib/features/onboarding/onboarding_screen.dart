@@ -28,7 +28,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       description: '표제부, 갑구, 을구의 권리관계를\n자동으로 파악해 드립니다',
     ),
     _OnboardingPage(
-      icon: Icons.shield_rounded,
+      icon: Icons.verified_rounded,
       color: AppColors.safe,
       title: '안전 등급으로\n한눈에 확인',
       description: '위험 요소를 SAFE / CAUTION / DANGER\n등급으로 명확하게 알려드립니다',

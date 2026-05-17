@@ -186,7 +186,7 @@ class _LogoBadge extends StatelessWidget {
             Border.all(color: Colors.white.withValues(alpha: 0.2), width: 1.5),
       ),
       child: const Icon(
-        Icons.shield_rounded,
+        Icons.home_rounded,
         size: 56,
         color: Colors.white,
       ),

@@ -68,7 +68,7 @@ class LoginScreen extends ConsumerWidget {
                             ),
                           ),
                           child: const Icon(
-                            Icons.shield_rounded,
+                            Icons.home_rounded,
                             size: 48,
                             color: Colors.white,
                           ),

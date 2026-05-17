@@ -175,26 +175,10 @@ class UploadScreen extends ConsumerWidget {
                   duration: const Duration(milliseconds: 200),
                   height: 56,
                   decoration: BoxDecoration(
-                    gradient: state.selectedFile != null && !state.uploading
-                        ? const LinearGradient(
-                            colors: [AppColors.primary, AppColors.secondary],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          )
-                        : null,
-                    color: state.selectedFile == null || state.uploading
-                        ? AppColors.border
-                        : null,
+                    color: state.selectedFile != null && !state.uploading
+                        ? AppColors.primary
+                        : AppColors.border,
                     borderRadius: BorderRadius.circular(16),
-                    boxShadow: state.selectedFile != null && !state.uploading
-                        ? [
-                            BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.35),
-                              blurRadius: 14,
-                              offset: const Offset(0, 5),
-                            ),
-                          ]
-                        : [],
                   ),
                   child: Center(
                     child: state.uploading

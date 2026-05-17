@@ -4,15 +4,15 @@ import '../core/constants/app_colors.dart';
 import '../models/deed.dart';
 
 class LeaseCheckItemRow extends StatelessWidget {
-  final LeaseCheckItem item;
+  final Recommendation item;
   final bool isLast;
 
   const LeaseCheckItemRow({super.key, required this.item, this.isLast = false});
 
   (String label, Color color) get _priorityStyle => switch (item.priority) {
-    LeaseCheckItemPriority.required_ => ('필수', AppColors.priorityRequired),
-    LeaseCheckItemPriority.recommended => ('권장', AppColors.priorityRecommended),
-    LeaseCheckItemPriority.reference => ('참고', AppColors.priorityReference),
+    RecommendationPriority.required_ => ('필수', AppColors.priorityRequired),
+    RecommendationPriority.recommended => ('권장', AppColors.priorityRecommended),
+    RecommendationPriority.reference => ('참고', AppColors.priorityReference),
   };
 
   @override

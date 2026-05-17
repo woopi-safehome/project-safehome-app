@@ -46,17 +46,7 @@ class _MyPageScreenState extends ConsumerState<MyPageScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          '분석 이력',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
+        title: const Text('분석 이력'),
       ),
       body: _buildBody(state),
     );

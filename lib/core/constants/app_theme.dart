@@ -34,17 +34,19 @@ class AppTheme {
         ),
         scaffoldBackgroundColor: AppColors.background,
         appBarTheme: const AppBarTheme(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
+          backgroundColor: Colors.white,
+          foregroundColor: AppColors.secondary,
           elevation: 0,
+          scrolledUnderElevation: 1,
           centerTitle: true,
           surfaceTintColor: Colors.transparent,
+          shadowColor: Color(0x14000000),
           titleTextStyle: TextStyle(
-            color: Colors.white,
+            color: AppColors.secondary,
             fontSize: 17,
             fontWeight: FontWeight.w600,
           ),
-          iconTheme: IconThemeData(color: Colors.white),
+          iconTheme: IconThemeData(color: AppColors.secondary),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(

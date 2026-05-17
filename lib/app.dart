@@ -64,6 +64,12 @@ class SafeHomeApp extends StatelessWidget {
       darkTheme: AppTheme.dark,
       routerConfig: appRouter,
       debugShowCheckedModeBanner: false,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(
+          textScaler: const TextScaler.linear(1.1),
+        ),
+        child: child!,
+      ),
     );
   }
 }

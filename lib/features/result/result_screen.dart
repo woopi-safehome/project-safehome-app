@@ -94,13 +94,7 @@ class _SafetyHero extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [bg.withValues(alpha: 0.95), bg],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
+      color: bg,
       child: SafeArea(
         bottom: false,
         child: Padding(
@@ -378,13 +372,9 @@ class _RecommendationsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.primaryLight, AppColors.secondaryLight],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        color: AppColors.primaryLight,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.2)),
+        border: Border.all(color: AppColors.border),
       ),
       padding: const EdgeInsets.all(16),
       child: Column(

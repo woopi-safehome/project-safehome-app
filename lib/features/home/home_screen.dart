@@ -64,19 +64,22 @@ class HomeScreen extends ConsumerWidget {
 
   SliverAppBar _buildAppBar(BuildContext context, WidgetRef ref) {
     return SliverAppBar(
-      backgroundColor: AppColors.primary,
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: const Color(0x14000000),
       floating: true,
       snap: true,
       elevation: 0,
+      scrolledUnderElevation: 1,
       toolbarHeight: 60,
       title: const Row(
         children: [
-          Icon(Icons.shield_rounded, color: Colors.white, size: 24),
+          Icon(Icons.home_rounded, color: AppColors.primary, size: 24),
           SizedBox(width: 8),
           Text(
             'SafeHome',
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.secondary,
               fontSize: 20,
               fontWeight: FontWeight.w800,
               letterSpacing: -0.3,
@@ -86,12 +89,12 @@ class HomeScreen extends ConsumerWidget {
       ),
       actions: [
         IconButton(
-          icon: const Icon(Icons.history_rounded, color: Colors.white),
+          icon: const Icon(Icons.history_rounded, color: AppColors.secondary),
           tooltip: '분석 이력',
           onPressed: () => context.push('/my-page'),
         ),
         PopupMenuButton<_AccountAction>(
-          icon: const Icon(Icons.account_circle_outlined, color: Colors.white),
+          icon: const Icon(Icons.account_circle_outlined, color: AppColors.secondary),
           color: Colors.white,
           onSelected: (action) => _onAccountAction(context, ref, action),
           itemBuilder: (_) => const [
@@ -182,13 +185,7 @@ class _HeroBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.primary, AppColors.secondary],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-      ),
+      color: AppColors.primary,
       padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -284,19 +281,8 @@ class _UploadCTACard extends StatelessWidget {
                   width: double.infinity,
                   height: 52,
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [AppColors.primary, AppColors.secondary],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
+                    color: AppColors.primary,
                     borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primary.withValues(alpha: 0.3),
-                        blurRadius: 12,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
                   ),
                   child: const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
