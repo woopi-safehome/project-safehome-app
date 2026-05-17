@@ -3,53 +3,53 @@ import 'package:flutter/material.dart';
 class AppColors {
   AppColors._();
 
-  // Primary — 네이비
-  static const primary = Color(0xFF1A3A6B);
-  static const primaryLight = Color(0xFFEAEFF7);
-  static const primaryDark = Color(0xFF122952);
+  // Primary — Emerald Green (로고 그린)
+  static const primary = Color(0xFF3CAB72);
+  static const primaryLight = Color(0xFFE7F5ED);
+  static const primaryDark = Color(0xFF1E6E45);
 
-  // Secondary — Teal
-  static const secondary = Color(0xFF006D77);
-  static const secondaryLight = Color(0xFFE0F4F6);
-  static const secondaryDark = Color(0xFF004F57);
+  // Secondary — Deep Forest (깊이감·전문성)
+  static const secondary = Color(0xFF1B4332);
+  static const secondaryLight = Color(0xFFD1FAE5);
+  static const secondaryDark = Color(0xFF0D2B1F);
 
   // Background
-  static const background = Color(0xFFF5F7FA);
+  static const background = Color(0xFFF2F8F5);
   static const surface = Color(0xFFFFFFFF);
 
   // Text
-  static const textPrimary = Color(0xFF0F172A);
-  static const textSecondary = Color(0xFF64748B);
-  static const textMuted = Color(0xFF94A3B8);
+  static const textPrimary = Color(0xFF1A2926);
+  static const textSecondary = Color(0xFF4A7C65);
+  static const textMuted = Color(0xFF8BA89A);
 
   // Border
-  static const border = Color(0xFFE2E8F0);
+  static const border = Color(0xFFC8E6D4);
 
   // Safety levels
-  static const safe = Color(0xFF15803D);
+  static const safe = Color(0xFF16A34A);
   static const safeBg = Color(0xFFDCFCE7);
 
-  static const caution = Color(0xFFB45309);
-  static const cautionBg = Color(0xFFFEF9C3);
+  static const caution = Color(0xFFD97706);
+  static const cautionBg = Color(0xFFFEF3C7);
 
-  static const danger = Color(0xFFBE123C);
-  static const dangerBg = Color(0xFFFFE4E6);
+  static const danger = Color(0xFFDC2626);
+  static const dangerBg = Color(0xFFFEE2E2);
 
   // Checklist status
-  static const statusGood = Color(0xFF15803D);
+  static const statusGood = Color(0xFF16A34A);
   static const statusGoodBg = Color(0xFFDCFCE7);
 
-  static const statusCaution = Color(0xFFB45309);
-  static const statusCautionBg = Color(0xFFFEF9C3);
+  static const statusCaution = Color(0xFFD97706);
+  static const statusCautionBg = Color(0xFFFEF3C7);
 
-  static const statusDanger = Color(0xFFBE123C);
-  static const statusDangerBg = Color(0xFFFFE4E6);
+  static const statusDanger = Color(0xFFDC2626);
+  static const statusDangerBg = Color(0xFFFEE2E2);
 
-  static const statusUnknown = Color(0xFF64748B);
-  static const statusUnknownBg = Color(0xFFF1F5F9);
+  static const statusUnknown = Color(0xFF4A7C65);
+  static const statusUnknownBg = Color(0xFFECF5F0);
 
   // Priority
-  static const priorityRequired = Color(0xFFBE123C);
-  static const priorityRecommended = Color(0xFFB45309);
-  static const priorityReference = Color(0xFF475569);
+  static const priorityRequired = Color(0xFFDC2626);
+  static const priorityRecommended = Color(0xFFD97706);
+  static const priorityReference = Color(0xFF4A7C65);
 }

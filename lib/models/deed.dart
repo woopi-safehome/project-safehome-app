@@ -36,16 +36,10 @@ enum LeaseType {
   @JsonValue('월세') wolse,
 }
 
-enum LeaseCheckItemPriority {
+enum RecommendationPriority {
   @JsonValue('필수') required_,
   @JsonValue('권장') recommended,
   @JsonValue('참고') reference,
-}
-
-enum RiskSeverity {
-  @JsonValue('HIGH') high,
-  @JsonValue('MEDIUM') medium,
-  @JsonValue('LOW') low,
 }
 
 // ─── SSE Event ───────────────────────────────────────────────────────────────
@@ -117,70 +111,17 @@ class OwnershipInfo with _$OwnershipInfo {
       _$OwnershipInfoFromJson(json);
 }
 
-// ─── Mortgage Detail ──────────────────────────────────────────────────────────
+// ─── Checklist Analysis ───────────────────────────────────────────────────────
 
 @freezed
-class MortgageDetail with _$MortgageDetail {
-  const factory MortgageDetail({
-    required String creditor,
-    required String maxClaimAmount,
-    String? registrationDate,
-    String? cancelDate,
-    required bool isActive,
-  }) = _MortgageDetail;
+class ChecklistAnalysis with _$ChecklistAnalysis {
+  const factory ChecklistAnalysis({
+    required String findings,
+    required String leaseImpact,
+  }) = _ChecklistAnalysis;
 
-  factory MortgageDetail.fromJson(Map<String, dynamic> json) =>
-      _$MortgageDetailFromJson(json);
-}
-
-// ─── Mortgage Info ────────────────────────────────────────────────────────────
-
-@freezed
-class MortgageInfo with _$MortgageInfo {
-  const factory MortgageInfo({
-    required int totalCount,
-    required int activeCount,
-    required String totalMaxClaimAmount,
-    String? riskComment,
-    @Default([]) List<MortgageDetail> details,
-  }) = _MortgageInfo;
-
-  factory MortgageInfo.fromJson(Map<String, dynamic> json) =>
-      _$MortgageInfoFromJson(json);
-}
-
-// ─── Other Right ─────────────────────────────────────────────────────────────
-
-@freezed
-class OtherRight with _$OtherRight {
-  const factory OtherRight({
-    required String type,
-    required String holder,
-    String? amount,
-    String? period,
-    String? registrationDate,
-    String? tenantImpact,
-  }) = _OtherRight;
-
-  factory OtherRight.fromJson(Map<String, dynamic> json) =>
-      _$OtherRightFromJson(json);
-}
-
-// ─── Legal Risk ───────────────────────────────────────────────────────────────
-
-@freezed
-class LegalRisk with _$LegalRisk {
-  const factory LegalRisk({
-    required String type,
-    required String claimant,
-    String? amount,
-    String? registrationDate,
-    RiskSeverity? severity,
-    String? description,
-  }) = _LegalRisk;
-
-  factory LegalRisk.fromJson(Map<String, dynamic> json) =>
-      _$LegalRiskFromJson(json);
+  factory ChecklistAnalysis.fromJson(Map<String, dynamic> json) =>
+      _$ChecklistAnalysisFromJson(json);
 }
 
 // ─── Checklist Item ───────────────────────────────────────────────────────────
@@ -188,43 +129,74 @@ class LegalRisk with _$LegalRisk {
 @freezed
 class ChecklistItem with _$ChecklistItem {
   const factory ChecklistItem({
+    required String id,
     required String category,
     required String item,
     required ChecklistStatus status,
     required String detail,
+    ChecklistAnalysis? analysis,
   }) = _ChecklistItem;
 
   factory ChecklistItem.fromJson(Map<String, dynamic> json) =>
       _$ChecklistItemFromJson(json);
 }
 
-// ─── Lease Check Item ─────────────────────────────────────────────────────────
+// ─── Risk Summary ─────────────────────────────────────────────────────────────
 
 @freezed
-class LeaseCheckItem with _$LeaseCheckItem {
-  const factory LeaseCheckItem({
-    required String category,
-    required String title,
-    required String description,
-    required LeaseCheckItemPriority priority,
-  }) = _LeaseCheckItem;
+class RiskSummary with _$RiskSummary {
+  const factory RiskSummary({
+    required String leaseType,
+    required String level,
+    required String content,
+  }) = _RiskSummary;
 
-  factory LeaseCheckItem.fromJson(Map<String, dynamic> json) =>
-      _$LeaseCheckItemFromJson(json);
+  factory RiskSummary.fromJson(Map<String, dynamic> json) =>
+      _$RiskSummaryFromJson(json);
 }
 
-// ─── Lease Specific Analysis ─────────────────────────────────────────────────
+// ─── Recommendation ───────────────────────────────────────────────────────────
 
 @freezed
-class LeaseSpecificAnalysis with _$LeaseSpecificAnalysis {
-  const factory LeaseSpecificAnalysis({
-    required String leaseType,
-    required String summary,
-    @Default([]) List<LeaseCheckItem> checkItems,
-  }) = _LeaseSpecificAnalysis;
+class Recommendation with _$Recommendation {
+  const factory Recommendation({
+    required RecommendationPriority priority,
+    required String title,
+    required String description,
+  }) = _Recommendation;
 
-  factory LeaseSpecificAnalysis.fromJson(Map<String, dynamic> json) =>
-      _$LeaseSpecificAnalysisFromJson(json);
+  factory Recommendation.fromJson(Map<String, dynamic> json) =>
+      _$RecommendationFromJson(json);
+}
+
+// ─── Reference Item ───────────────────────────────────────────────────────────
+
+@freezed
+class ReferenceItem with _$ReferenceItem {
+  const factory ReferenceItem({
+    required String source,
+    required String article,
+    required String title,
+    required String content,
+    required String riskContext,
+    @Default([]) List<String> tags,
+  }) = _ReferenceItem;
+
+  factory ReferenceItem.fromJson(Map<String, dynamic> json) =>
+      _$ReferenceItemFromJson(json);
+}
+
+// ─── References ───────────────────────────────────────────────────────────────
+
+@freezed
+class References with _$References {
+  const factory References({
+    @Default([]) List<ReferenceItem> laws,
+    @Default([]) List<ReferenceItem> cases,
+  }) = _References;
+
+  factory References.fromJson(Map<String, dynamic> json) =>
+      _$ReferencesFromJson(json);
 }
 
 // ─── Job Summary (목록용) ──────────────────────────────────────────────────────
@@ -239,6 +211,7 @@ class DeedJobSummary with _$DeedJobSummary {
     SafetyLevel? safetyLevel,
     String? address,
     String? createdAt,
+    String? leaseType,
   }) = _DeedJobSummary;
 
   factory DeedJobSummary.fromJson(Map<String, dynamic> json) =>
@@ -265,17 +238,14 @@ class DeedAnalysis with _$DeedAnalysis {
     required bool isValidDeed,
     String? reason,
     SafetyLevel? safetyLevel,
+    String? analysisSummary,
     PropertyInfo? propertyInfo,
     OwnershipInfo? ownershipInfo,
-    MortgageInfo? mortgageInfo,
-    @Default([]) List<OtherRight> otherRights,
-    @Default([]) List<LegalRisk> legalRisks,
-    @Default([]) List<ChecklistItem> safetyChecklist,
-    @Default([]) List<String> keyRiskPoints,
-    String? overallRiskSummary,
-    LeaseSpecificAnalysis? leaseSpecificAnalysis,
-    String? recommendation,
-    String? summary,
+    @Default([]) List<ChecklistItem> checklist,
+    RiskSummary? riskSummary,
+    String? overallSummary,
+    @Default([]) List<Recommendation> recommendations,
+    References? references,
   }) = _DeedAnalysis;
 
   factory DeedAnalysis.fromJson(Map<String, dynamic> json) =>

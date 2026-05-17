@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../core/constants/app_colors.dart';
 import '../../models/deed.dart';
 import '../../widgets/checklist_row.dart';
-import '../../widgets/lease_check_item_row.dart';
 import 'result_notifier.dart';
 
 class ResultScreen extends ConsumerWidget {
@@ -74,22 +73,22 @@ class _SafetyHero extends StatelessWidget {
           Icons.verified_rounded,
           '안전',
           '이 부동산은 안전합니다',
-          const Color(0xFF15803D),
-          const Color(0xFFDCFCE7),
+          AppColors.safe,
+          AppColors.safeBg,
         ),
       SafetyLevel.caution => (
           Icons.warning_amber_rounded,
           '주의',
           '확인이 필요한 사항이 있습니다',
-          const Color(0xFFB45309),
-          const Color(0xFFFEF9C3),
+          AppColors.caution,
+          AppColors.cautionBg,
         ),
       SafetyLevel.danger => (
           Icons.dangerous_rounded,
           '위험',
           '위험 요소가 발견되었습니다',
-          const Color(0xFFBE123C),
-          const Color(0xFFFFE4E6),
+          AppColors.danger,
+          AppColors.dangerBg,
         ),
     };
 
@@ -97,10 +96,7 @@ class _SafetyHero extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            bg.withValues(alpha: 0.95),
-            bg,
-          ],
+          colors: [bg.withValues(alpha: 0.95), bg],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
@@ -112,7 +108,6 @@ class _SafetyHero extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 앱바 행
               Row(
                 children: [
                   GestureDetector(
@@ -139,7 +134,6 @@ class _SafetyHero extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 24),
-              // 안전도 배지
               Row(
                 children: [
                   Container(
@@ -213,13 +207,18 @@ class _FullResultView extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
-              // 핵심 위험 (있을 때만, 최상단 강조)
-              if (analysis.keyRiskPoints.isNotEmpty) ...[
-                _KeyRiskCard(points: analysis.keyRiskPoints),
+              // 1. 분석 결과 요약
+              if (analysis.analysisSummary != null) ...[
+                _ResultCard(
+                  title: '분석 결과 요약',
+                  icon: Icons.info_outline_rounded,
+                  iconColor: AppColors.primary,
+                  child: _TextContent(text: analysis.analysisSummary!),
+                ),
                 const SizedBox(height: 12),
               ],
 
-              // 부동산 정보
+              // 2. 부동산 정보
               if (analysis.propertyInfo != null) ...[
                 _ResultCard(
                   title: '부동산 정보',
@@ -230,7 +229,7 @@ class _FullResultView extends StatelessWidget {
                 const SizedBox(height: 12),
               ],
 
-              // 소유권 정보
+              // 3. 소유권 정보
               if (analysis.ownershipInfo != null) ...[
                 _ResultCard(
                   title: '소유권 정보',
@@ -244,53 +243,49 @@ class _FullResultView extends StatelessWidget {
                 const SizedBox(height: 12),
               ],
 
-              // 안전 체크리스트
-              if (analysis.safetyChecklist.isNotEmpty) ...[
+              // 4. 체크리스트
+              if (analysis.checklist.isNotEmpty) ...[
                 _ResultCard(
                   title: '안전 체크리스트',
                   icon: Icons.checklist_rounded,
                   iconColor: AppColors.safe,
-                  child: _ChecklistContent(items: analysis.safetyChecklist),
+                  child: _ChecklistContent(items: analysis.checklist),
                 ),
                 const SizedBox(height: 12),
               ],
 
-              // 임대 분석
-              if (analysis.leaseSpecificAnalysis != null) ...[
+              // 5. 위험요소 종합 요약
+              if (analysis.riskSummary != null) ...[
                 _ResultCard(
-                  title: '${analysis.leaseSpecificAnalysis!.leaseType} 임대 분석',
-                  icon: Icons.home_work_rounded,
-                  iconColor: AppColors.caution,
-                  child: _LeaseContent(lease: analysis.leaseSpecificAnalysis!),
-                ),
-                const SizedBox(height: 12),
-              ],
-
-              // 종합 위험 요약
-              if (analysis.overallRiskSummary != null) ...[
-                _ResultCard(
-                  title: '종합 위험 요약',
+                  title: '위험요소 종합 요약',
                   icon: Icons.summarize_rounded,
                   iconColor: AppColors.danger,
-                  child: _TextContent(text: analysis.overallRiskSummary!),
+                  trailing: _LevelChip(level: analysis.riskSummary!.level),
+                  child: _RiskSummaryContent(riskSummary: analysis.riskSummary!),
                 ),
                 const SizedBox(height: 12),
               ],
 
-              // 종합 요약
-              if (analysis.summary != null) ...[
+              // 6. 전체 요약
+              if (analysis.overallSummary != null) ...[
                 _ResultCard(
-                  title: '종합 요약',
+                  title: '전체 요약',
                   icon: Icons.description_rounded,
                   iconColor: AppColors.textSecondary,
-                  child: _TextContent(text: analysis.summary!),
+                  child: _TextContent(text: analysis.overallSummary!),
                 ),
                 const SizedBox(height: 12),
               ],
 
-              // 권고사항
-              if (analysis.recommendation != null) ...[
-                _RecommendationCard(text: analysis.recommendation!),
+              // 7. 권고 사항
+              if (analysis.recommendations.isNotEmpty) ...[
+                _RecommendationsCard(items: analysis.recommendations),
+                const SizedBox(height: 12),
+              ],
+
+              // 8. 관련 법령·사례
+              if (analysis.references != null) ...[
+                _ReferencesCard(references: analysis.references!),
                 const SizedBox(height: 12),
               ],
             ]),
@@ -335,7 +330,6 @@ class _ResultCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 카드 헤더
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
             child: Row(
@@ -376,69 +370,9 @@ class _ResultCard extends StatelessWidget {
   }
 }
 
-class _KeyRiskCard extends StatelessWidget {
-  final List<String> points;
-  const _KeyRiskCard({required this.points});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.dangerBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.danger.withValues(alpha: 0.3)),
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.report_problem_rounded, size: 18, color: AppColors.danger),
-              const SizedBox(width: 8),
-              const Text(
-                '핵심 위험 항목',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.danger,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ...points.map((p) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.only(top: 2),
-                      child: Icon(Icons.circle, size: 7, color: AppColors.danger),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        p,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textPrimary,
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              )),
-        ],
-      ),
-    );
-  }
-}
-
-class _RecommendationCard extends StatelessWidget {
-  final String text;
-  const _RecommendationCard({required this.text});
+class _RecommendationsCard extends StatelessWidget {
+  final List<Recommendation> items;
+  const _RecommendationsCard({required this.items});
 
   @override
   Widget build(BuildContext context) {
@@ -456,12 +390,12 @@ class _RecommendationCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
-              const Icon(Icons.lightbulb_rounded, size: 18, color: AppColors.primary),
-              const SizedBox(width: 8),
-              const Text(
-                '권고사항',
+              Icon(Icons.lightbulb_rounded, size: 18, color: AppColors.primary),
+              SizedBox(width: 8),
+              Text(
+                '권고 사항',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
@@ -470,13 +404,71 @@ class _RecommendationCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            text,
-            style: const TextStyle(
-              fontSize: 13,
-              color: AppColors.textPrimary,
-              height: 1.65,
+          const SizedBox(height: 12),
+          ...items.asMap().entries.map((e) => _RecommendationRow(
+                item: e.value,
+                isLast: e.key == items.length - 1,
+              )),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecommendationRow extends StatelessWidget {
+  final Recommendation item;
+  final bool isLast;
+  const _RecommendationRow({required this.item, required this.isLast});
+
+  (String label, Color color) get _priorityStyle => switch (item.priority) {
+    RecommendationPriority.required_   => ('필수', AppColors.danger),
+    RecommendationPriority.recommended => ('권장', AppColors.caution),
+    RecommendationPriority.reference   => ('참고', AppColors.textSecondary),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = _priorityStyle;
+    return Padding(
+      padding: EdgeInsets.only(bottom: isLast ? 0 : 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            margin: const EdgeInsets.only(top: 1),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: color),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.title,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  item.description,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary,
+                    height: 1.5,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -484,6 +476,216 @@ class _RecommendationCard extends StatelessWidget {
     );
   }
 }
+
+class _ReferencesCard extends StatelessWidget {
+  final References references;
+  const _ReferencesCard({required this.references});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Row(
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.menu_book_rounded, size: 17, color: AppColors.primary),
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  '관련 법령 · 사례',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1, color: AppColors.border),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (references.laws.isNotEmpty) ...[
+                  _ReferenceSection(label: '관련 법령', items: references.laws, color: AppColors.primary),
+                  if (references.cases.isNotEmpty) const SizedBox(height: 14),
+                ],
+                if (references.cases.isNotEmpty)
+                  _ReferenceSection(label: '유사 사례', items: references.cases, color: AppColors.danger),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReferenceSection extends StatelessWidget {
+  final String label;
+  final List<ReferenceItem> items;
+  final Color color;
+  const _ReferenceSection({required this.label, required this.items, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ...items.asMap().entries.map((e) => _ReferenceItemTile(
+              item: e.value,
+              color: color,
+              isLast: e.key == items.length - 1,
+            )),
+      ],
+    );
+  }
+}
+
+class _ReferenceItemTile extends StatefulWidget {
+  final ReferenceItem item;
+  final Color color;
+  final bool isLast;
+  const _ReferenceItemTile({required this.item, required this.color, required this.isLast});
+
+  @override
+  State<_ReferenceItemTile> createState() => _ReferenceItemTileState();
+}
+
+class _ReferenceItemTileState extends State<_ReferenceItemTile> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: widget.isLast ? 0 : 10),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => setState(() => _expanded = !_expanded),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: widget.color.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: widget.color.withValues(alpha: 0.15)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${widget.item.source} ${widget.item.article}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: widget.color,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          widget.item.title,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Icon(
+                    _expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                    size: 18,
+                    color: AppColors.textSecondary,
+                  ),
+                ],
+              ),
+              if (_expanded) ...[
+                const SizedBox(height: 10),
+                const Divider(height: 1, color: AppColors.border),
+                const SizedBox(height: 10),
+                Text(
+                  widget.item.content,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textPrimary,
+                    height: 1.6,
+                  ),
+                ),
+                if (widget.item.riskContext.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppColors.cautionBg,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.warning_amber_rounded, size: 13, color: AppColors.caution),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            widget.item.riskContext,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: AppColors.textPrimary,
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Chips ────────────────────────────────────────────────────────────────────
 
 class _WarningChip extends StatelessWidget {
   final String label;
@@ -517,6 +719,32 @@ class _WarningChip extends StatelessWidget {
   }
 }
 
+class _LevelChip extends StatelessWidget {
+  final String level;
+  const _LevelChip({required this.level});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (level) {
+      '높음' => AppColors.danger,
+      '보통' => AppColors.caution,
+      _ => AppColors.safe,
+    };
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Text(
+        level,
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
+      ),
+    );
+  }
+}
+
 // ─── Card Contents ────────────────────────────────────────────────────────────
 
 class _PropertyContent extends StatelessWidget {
@@ -531,8 +759,10 @@ class _PropertyContent extends StatelessWidget {
         _InfoRow(label: '종류', value: info.type),
         _InfoRow(label: '면적', value: info.area),
         if (info.purpose != null) _InfoRow(label: '용도', value: info.purpose!),
-        if (info.buildYear != null) _InfoRow(label: '건축연도', value: info.buildYear!, isLast: true)
-        else const SizedBox.shrink(),
+        if (info.buildYear != null)
+          _InfoRow(label: '건축연도', value: info.buildYear!, isLast: true)
+        else
+          const SizedBox.shrink(),
       ],
     );
   }
@@ -571,9 +801,9 @@ class _ChecklistContent extends StatelessWidget {
   }
 }
 
-class _LeaseContent extends StatelessWidget {
-  final LeaseSpecificAnalysis lease;
-  const _LeaseContent({required this.lease});
+class _RiskSummaryContent extends StatelessWidget {
+  final RiskSummary riskSummary;
+  const _RiskSummaryContent({required this.riskSummary});
 
   @override
   Widget build(BuildContext context) {
@@ -581,17 +811,18 @@ class _LeaseContent extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          lease.summary,
-          style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, height: 1.6),
+          '${riskSummary.leaseType} 계약 기준',
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textSecondary,
+          ),
         ),
-        if (lease.checkItems.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          const Divider(color: AppColors.border),
-          const SizedBox(height: 6),
-          ...lease.checkItems.asMap().entries.map((e) {
-            return LeaseCheckItemRow(item: e.value, isLast: e.key == lease.checkItems.length - 1);
-          }),
-        ],
+        const SizedBox(height: 6),
+        Text(
+          riskSummary.content,
+          style: const TextStyle(fontSize: 13, color: AppColors.textPrimary, height: 1.65),
+        ),
       ],
     );
   }
@@ -658,7 +889,6 @@ class _InvalidDeedView extends StatelessWidget {
     return SafeArea(
       child: Column(
         children: [
-          // 미니 앱바
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: Row(

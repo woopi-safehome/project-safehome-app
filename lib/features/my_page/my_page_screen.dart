@@ -162,6 +162,7 @@ class _JobCard extends StatelessWidget {
                     SafetyBadge(level: job.safetyLevel!),
                     const SizedBox(width: 8),
                   ],
+                  if (job.leaseType != null) _LeaseTypeBadge(leaseType: job.leaseType!),
                   const Spacer(),
                   Text(
                     _formatDate(job.createdAt),
@@ -261,6 +262,33 @@ class _JobCard extends StatelessWidget {
     } catch (_) {
       return '';
     }
+  }
+}
+
+// ─── Lease Type Badge ─────────────────────────────────────────────────────────
+
+class _LeaseTypeBadge extends StatelessWidget {
+  final String leaseType;
+  const _LeaseTypeBadge({required this.leaseType});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Text(
+        leaseType,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: AppColors.textSecondary,
+        ),
+      ),
+    );
   }
 }
 

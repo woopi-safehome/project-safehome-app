@@ -38,6 +38,7 @@ class AppTheme {
           foregroundColor: Colors.white,
           elevation: 0,
           centerTitle: true,
+          surfaceTintColor: Colors.transparent,
           titleTextStyle: TextStyle(
             color: Colors.white,
             fontSize: 17,
@@ -49,16 +50,17 @@ class AppTheme {
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             padding: const EdgeInsets.symmetric(vertical: 16),
             textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+            elevation: 0,
           ),
         ),
         outlinedButtonTheme: OutlinedButtonThemeData(
           style: OutlinedButton.styleFrom(
             foregroundColor: AppColors.secondary,
             side: const BorderSide(color: AppColors.secondary),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             padding: const EdgeInsets.symmetric(vertical: 16),
             textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
@@ -67,7 +69,7 @@ class AppTheme {
           color: AppColors.surface,
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             side: const BorderSide(color: AppColors.border),
           ),
           margin: EdgeInsets.zero,
@@ -78,8 +80,18 @@ class AppTheme {
           space: 0,
         ),
         floatingActionButtonTheme: const FloatingActionButtonThemeData(
-          backgroundColor: AppColors.secondary,
+          backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
+          elevation: 2,
+        ),
+        progressIndicatorTheme: const ProgressIndicatorThemeData(
+          color: AppColors.primary,
+        ),
+        snackBarTheme: SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          backgroundColor: AppColors.secondary,
+          contentTextStyle: const TextStyle(color: Colors.white),
         ),
       );
 
