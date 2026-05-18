@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
+import '../../core/services/logger.dart';
 import '../../core/services/token_storage.dart';
 
 sealed class LoginState {
@@ -77,7 +78,14 @@ class LoginNotifier extends Notifier<LoginState> {
       } else {
         state = LoginError('서버 인증에 실패했습니다. 다시 시도해 주세요.');
       }
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.error(
+        'LoginNotifier',
+        'POST /api/auth/kakao 네트워크 오류',
+        error: e,
+        stackTrace: st,
+        context: {'url': '$_url/api/auth/kakao'},
+      );
       state = LoginError('네트워크 오류가 발생했습니다. 다시 시도해 주세요.');
     }
   }
