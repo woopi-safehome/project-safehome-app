@@ -8,14 +8,13 @@ import '../../models/deed.dart';
 import '../upload/upload_notifier.dart';
 
 const _tag = 'AnalyzingNotifier';
-const _pollInterval = Duration(seconds: 2);
 const _minStepDisplay = Duration(milliseconds: 1500);
 
 // ─── State ────────────────────────────────────────────────────────────────────
 
 class AnalyzingState {
   final DeedJob? job;
-  final AnalysisStep? displayStep; // 서버 step 과 무관하게 UI가 제어하는 단계
+  final AnalysisStep? displayStep;
   final String? errorMessage;
   final bool completed;
 
@@ -46,117 +45,161 @@ const _sentinel = Object();
 // ─── Notifier ─────────────────────────────────────────────────────────────────
 
 class AnalyzingNotifier extends FamilyNotifier<AnalyzingState, String> {
-  Timer? _pollTimer;
+  StreamSubscription<dynamic>? _subscription;
   Timer? _stepTimer;
 
-  // 서버 상태 (폴링 결과)
   DeedJob? _latestJob;
   bool _serverCompleted = false;
   bool _serverFailed = false;
 
-  // UI 단계 진행 — 서버와 무관하게 항상 3단계를 순서대로 표시
-  static const _uiSteps = [
-    AnalysisStep.pdfParsing,
-    AnalysisStep.llmAnalysis,
-    AnalysisStep.postProcessing,
-  ];
-  int _uiStepIndex = 0;
-  bool _uiDone = false;
+  DateTime _stepStartTime = DateTime.now();
+  AnalysisStep? _pendingStep;
+  bool _pendingFinish = false;
 
   @override
   AnalyzingState build(String jobId) {
     ref.onDispose(() {
-      _pollTimer?.cancel();
+      _subscription?.cancel();
       _stepTimer?.cancel();
     });
-    _startPolling(jobId);
-    // build() 반환 후 notifier 초기화 완료 시점에 실행
-    Future.microtask(_advanceStep);
-    return const AnalyzingState();
+    _applyStep(AnalysisStep.pdfParsing);
+    _startStreaming(jobId);
+    return AnalyzingState(displayStep: AnalysisStep.pdfParsing);
   }
 
-  // ── UI 단계 진행 ─────────────────────────────────────────────────────────────
+  // ── 단계 전환 (최소 표시 시간 게이트) ───────────────────────────────────────
 
-  void _advanceStep() {
-    if (_uiStepIndex >= _uiSteps.length) {
-      _uiDone = true;
-      _tryFinish();
+  void _scheduleStep(AnalysisStep next) {
+    if (next == state.displayStep) return;
+
+    final remaining = _minStepDisplay - DateTime.now().difference(_stepStartTime);
+    if (remaining <= Duration.zero) {
+      _applyStep(next);
+      if (_pendingFinish) _scheduleFinish();
+    } else {
+      _pendingStep = next;
+      _stepTimer?.cancel();
+      _stepTimer = Timer(remaining, _onStepTimerFired);
+    }
+  }
+
+  void _onStepTimerFired() {
+    final next = _pendingStep;
+    _pendingStep = null;
+    if (next != null) _applyStep(next);
+
+    if (_pendingFinish) {
+      // 방금 바뀐 단계도 최소 시간 보장 후 완료
+      _pendingFinish = false;
+      _scheduleFinish();
+    }
+  }
+
+  void _applyStep(AnalysisStep step) {
+    _stepStartTime = DateTime.now();
+    state = state.copyWith(displayStep: step);
+  }
+
+  // ── 완료/실패 처리 (최소 표시 시간 게이트) ──────────────────────────────────
+
+  void _scheduleFinish() {
+    // 아직 단계 전환 타이머가 살아 있으면 그쪽에서 처리
+    if (_pendingStep != null) {
+      _pendingFinish = true;
       return;
     }
-    state = state.copyWith(displayStep: _uiSteps[_uiStepIndex]);
-    _uiStepIndex++;
-    _stepTimer = Timer(_minStepDisplay, _advanceStep);
+
+    final remaining = _minStepDisplay - DateTime.now().difference(_stepStartTime);
+    if (remaining <= Duration.zero) {
+      _applyFinish();
+    } else {
+      _stepTimer?.cancel();
+      _stepTimer = Timer(remaining, _applyFinish);
+    }
   }
 
-  // ── UI + 서버 모두 완료됐을 때만 화면 전환 ────────────────────────────────────
-
-  void _tryFinish() {
-    if (!_uiDone) return; // UI 단계가 끝나지 않았으면 대기
-
+  void _applyFinish() {
     if (_serverFailed) {
       state = state.copyWith(errorMessage: '분석에 실패했습니다. 다시 시도해주세요.');
     } else if (_serverCompleted) {
       state = state.copyWith(job: _latestJob, completed: true);
     }
-    // 서버가 아직 응답 없으면 폴링이 완료될 때 다시 _tryFinish 호출
   }
 
-  // ── 폴링 ─────────────────────────────────────────────────────────────────────
+  // ── SSE 스트리밍 ──────────────────────────────────────────────────────────────
 
-  void _startPolling(String jobId) {
-    _pollTimer = Timer.periodic(_pollInterval, (_) => _poll(jobId));
-    _poll(jobId);
-  }
-
-  Future<void> _poll(String jobId) async {
+  void _startStreaming(String jobId) {
     final apiClient = ref.read(apiClientProvider);
-    try {
-      final job = await apiClient.getJob(jobId);
-      AppLogger.info(_tag, 'poll', context: {'status': job.status.name, 'step': job.step?.name});
-      _latestJob = job;
+    _subscription = apiClient.streamJobEvents(jobId).listen(
+      (event) async {
+        AppLogger.info(_tag, 'sse event', context: {'status': event.status.name, 'step': event.step?.name});
 
-      if (job.status == JobStatus.completed) {
-        _pollTimer?.cancel();
-        _serverCompleted = true;
-        _tryFinish();
-      } else if (job.status == JobStatus.failed) {
-        _pollTimer?.cancel();
-        _serverFailed = true;
-        _tryFinish();
-      }
-      // IN_PROGRESS / PENDING: UI 단계는 독립적으로 진행 중이므로 state 건드리지 않음
-    } on NetworkException catch (e) {
-      AppLogger.error(_tag, 'network error', error: e);
-      _stopAll();
-      state = state.copyWith(errorMessage: '네트워크 연결을 확인하세요.');
-    } on ApiException catch (e) {
-      AppLogger.error(_tag, 'api error', error: e);
-      _stopAll();
-      state = state.copyWith(errorMessage: '서버 오류가 발생했습니다. (${e.statusCode})');
-    } catch (e) {
-      AppLogger.error(_tag, 'unexpected error', error: e);
-      _stopAll();
-      state = state.copyWith(errorMessage: '알 수 없는 오류가 발생했습니다.');
-    }
+        if (event.step != null) _scheduleStep(event.step!);
+
+        if (event.status == JobStatus.completed) {
+          await _subscription?.cancel();
+          _subscription = null;
+          try {
+            _latestJob = await apiClient.getJob(jobId);
+          } on NetworkException catch (e) {
+            AppLogger.error(_tag, 'getJob network error', error: e);
+            _stopAll();
+            state = state.copyWith(errorMessage: '네트워크 연결을 확인하세요.');
+            return;
+          } on ApiException catch (e) {
+            AppLogger.error(_tag, 'getJob api error', error: e);
+            _stopAll();
+            state = state.copyWith(errorMessage: '서버 오류가 발생했습니다. (${e.statusCode})');
+            return;
+          }
+          _serverCompleted = true;
+          _scheduleFinish();
+        } else if (event.status == JobStatus.failed) {
+          await _subscription?.cancel();
+          _subscription = null;
+          _serverFailed = true;
+          _scheduleFinish();
+        }
+      },
+      onError: (Object e) {
+        AppLogger.error(_tag, 'stream error', error: e);
+        _stopAll();
+        if (e is NetworkException) {
+          state = state.copyWith(errorMessage: '네트워크 연결을 확인하세요.');
+        } else if (e is ApiException) {
+          state = state.copyWith(errorMessage: '서버 오류가 발생했습니다. (${e.statusCode})');
+        } else {
+          state = state.copyWith(errorMessage: '알 수 없는 오류가 발생했습니다.');
+        }
+      },
+      onDone: () {
+        // 스트림이 완료/실패 처리 없이 닫힌 경우
+        if (!_serverCompleted && !_serverFailed) {
+          AppLogger.error(_tag, 'stream closed unexpectedly');
+          state = state.copyWith(errorMessage: '분석 결과를 받지 못했습니다. 다시 시도해주세요.');
+        }
+      },
+    );
   }
 
   void _stopAll() {
-    _pollTimer?.cancel();
+    _subscription?.cancel();
+    _subscription = null;
     _stepTimer?.cancel();
   }
 
   // ── 재시도 ────────────────────────────────────────────────────────────────────
 
   void retry(String jobId) {
-    _stepTimer?.cancel();
+    _stopAll();
     _latestJob = null;
     _serverCompleted = false;
     _serverFailed = false;
-    _uiStepIndex = 0;
-    _uiDone = false;
-    state = const AnalyzingState();
-    _startPolling(jobId);
-    Future.microtask(_advanceStep);
+    _pendingStep = null;
+    _pendingFinish = false;
+    _applyStep(AnalysisStep.pdfParsing);
+    state = AnalyzingState(displayStep: AnalysisStep.pdfParsing);
+    _startStreaming(jobId);
   }
 }
 

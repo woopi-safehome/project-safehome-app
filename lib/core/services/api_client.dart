@@ -120,6 +120,55 @@ class ApiClient {
     return jobId;
   }
 
+  /// 작업 SSE 스트림 구독
+  Stream<SseEvent> streamJobEvents(String jobId) async* {
+    final uri = Uri.parse('$_baseUrl/api/deed/jobs/$jobId/stream');
+    AppLogger.info(_tag, 'streamJobEvents start', context: {'jobId': jobId});
+
+    final request = http.Request('GET', uri)
+      ..headers['Accept'] = 'text/event-stream'
+      ..headers.addAll(await _authHeaders());
+
+    final http.StreamedResponse streamed;
+    try {
+      streamed = await _client.send(request);
+    } catch (e) {
+      throw NetworkException('서버에 연결할 수 없습니다.', uri.toString(), cause: e);
+    }
+
+    if (streamed.statusCode != 200) {
+      throw ApiException(
+        'HTTP ${streamed.statusCode}',
+        streamed.statusCode,
+        uri.toString(),
+        jobId: jobId,
+      );
+    }
+
+    final buffer = StringBuffer();
+    await for (final chunk in streamed.stream.transform(utf8.decoder)) {
+      buffer.write(chunk);
+      final lines = buffer.toString().split('\n');
+      buffer
+        ..clear()
+        ..write(lines.last);
+
+      for (final line in lines.sublist(0, lines.length - 1)) {
+        final trimmed = line.trim();
+        if (!trimmed.startsWith('data:')) continue;
+        final jsonStr = trimmed.substring(5).trim();
+        if (jsonStr.isEmpty) continue;
+
+        try {
+          final map = jsonDecode(jsonStr) as Map<String, dynamic>;
+          yield SseEvent.fromJson(map);
+        } catch (e) {
+          throw ParseException('SSE 파싱 실패: $e', jobId: jobId);
+        }
+      }
+    }
+  }
+
   /// 작업 상태 조회
   Future<DeedJob> getJob(String jobId) async {
     final uri = Uri.parse('$_baseUrl/api/deed/jobs/$jobId');
