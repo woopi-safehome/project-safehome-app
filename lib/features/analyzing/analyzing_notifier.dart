@@ -52,7 +52,7 @@ class AnalyzingNotifier extends FamilyNotifier<AnalyzingState, String> {
   bool _serverFailed = false;
 
   DateTime _stepStartTime = DateTime.now();
-  AnalysisStep? _pendingStep;
+  final List<AnalysisStep> _stepQueue = [];
   bool _pendingFinish = false;
 
   @override
@@ -63,30 +63,44 @@ class AnalyzingNotifier extends FamilyNotifier<AnalyzingState, String> {
     return const AnalyzingState(displayStep: AnalysisStep.pdfParsing);
   }
 
-  // ── 단계 전환 (최소 표시 시간 게이트) ───────────────────────────────────────
+  // ── 단계 전환 (최소 표시 시간 게이트, 큐 기반) ──────────────────────────────
 
   void _scheduleStep(AnalysisStep next) {
-    if (next == state.displayStep) return;
+    // 현재 표시 중이고 큐도 비어있으면 중복
+    if (next == state.displayStep && _stepQueue.isEmpty) return;
+    // 큐 끝에 이미 같은 단계가 있으면 중복
+    if (_stepQueue.isNotEmpty && _stepQueue.last == next) return;
+
+    _stepQueue.add(next);
+    _maybeDrainQueue();
+  }
+
+  void _maybeDrainQueue() {
+    if (_stepTimer != null) return; // 타이머 실행 중 — 만료 시 처리
 
     final remaining = _minStepDisplay - DateTime.now().difference(_stepStartTime);
     if (remaining <= Duration.zero) {
-      _applyStep(next);
-      if (_pendingFinish) _scheduleFinish();
+      _drainOne();
     } else {
-      _pendingStep = next;
-      _stepTimer?.cancel();
       _stepTimer = Timer(remaining, _onStepTimerFired);
     }
   }
 
   void _onStepTimerFired() {
-    final next = _pendingStep;
-    _pendingStep = null;
-    if (next != null) _applyStep(next);
-    if (_pendingFinish) {
-      _pendingFinish = false;
-      _scheduleFinish();
+    _stepTimer = null;
+    _drainOne();
+  }
+
+  void _drainOne() {
+    if (_stepQueue.isEmpty) {
+      if (_pendingFinish) {
+        _pendingFinish = false;
+        _scheduleFinish();
+      }
+      return;
     }
+    _applyStep(_stepQueue.removeAt(0));
+    _maybeDrainQueue();
   }
 
   void _applyStep(AnalysisStep step) {
@@ -97,7 +111,8 @@ class AnalyzingNotifier extends FamilyNotifier<AnalyzingState, String> {
   // ── 완료/실패 처리 (최소 표시 시간 게이트) ──────────────────────────────────
 
   void _scheduleFinish() {
-    if (_pendingStep != null) {
+    // 큐에 단계가 남아있거나 타이머가 실행 중이면 대기
+    if (_stepQueue.isNotEmpty || _stepTimer != null) {
       _pendingFinish = true;
       return;
     }
@@ -106,8 +121,10 @@ class AnalyzingNotifier extends FamilyNotifier<AnalyzingState, String> {
     if (remaining <= Duration.zero) {
       _applyFinish();
     } else {
-      _stepTimer?.cancel();
-      _stepTimer = Timer(remaining, _applyFinish);
+      _stepTimer = Timer(remaining, () {
+        _stepTimer = null;
+        _applyFinish();
+      });
     }
   }
 
@@ -183,7 +200,6 @@ class AnalyzingNotifier extends FamilyNotifier<AnalyzingState, String> {
     _stopAll();
     _serverCompleted = false;
     _serverFailed = false;
-    _pendingStep = null;
     _pendingFinish = false;
     _stepStartTime = DateTime.now();
     state = const AnalyzingState(displayStep: AnalysisStep.pdfParsing);
@@ -195,6 +211,7 @@ class AnalyzingNotifier extends FamilyNotifier<AnalyzingState, String> {
     _sseSub = null;
     _stepTimer?.cancel();
     _stepTimer = null;
+    _stepQueue.clear();
   }
 }
 

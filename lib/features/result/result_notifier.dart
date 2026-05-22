@@ -1,9 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/errors/app_exceptions.dart';
+import '../../core/services/api_client.dart';
 import '../../core/services/logger.dart';
 import '../../models/deed.dart';
-import '../upload/upload_notifier.dart';
 
 const _tag = 'ResultNotifier';
 

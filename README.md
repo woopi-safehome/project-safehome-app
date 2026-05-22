@@ -114,7 +114,7 @@ flutter run --dart-define-from-file=dart_defines/dev.json \
 
 ```bash
 flutter run --dart-define-from-file=dart_defines/dev.json \
-            --dart-define=API_URL=http://devupii.store:38080
+            --dart-define=API_URL=http://<dev-server>:38080
 ```
 
 ### VS Code 설정 (권장)

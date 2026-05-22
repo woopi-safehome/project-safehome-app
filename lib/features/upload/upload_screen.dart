@@ -12,7 +12,6 @@ class UploadScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(uploadNotifierProvider);
     final notifier = ref.read(uploadNotifierProvider.notifier);
-    final apiClient = ref.read(apiClientProvider);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -166,7 +165,7 @@ class UploadScreen extends ConsumerWidget {
                 onTap: (state.selectedFile == null || state.uploading)
                     ? null
                     : () async {
-                        final jobId = await notifier.upload(apiClient);
+                        final jobId = await notifier.upload();
                         if (jobId != null && context.mounted) {
                           context.go('/analyzing/$jobId');
                         }

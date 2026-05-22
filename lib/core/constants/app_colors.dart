@@ -35,21 +35,8 @@ class AppColors {
   static const danger = Color(0xFFDC2626);
   static const dangerBg = Color(0xFFFEE2E2);
 
-  // Checklist status
-  static const statusGood = Color(0xFF16A34A);
-  static const statusGoodBg = Color(0xFFDCFCE7);
-
-  static const statusCaution = Color(0xFFD97706);
-  static const statusCautionBg = Color(0xFFFEF3C7);
-
-  static const statusDanger = Color(0xFFDC2626);
-  static const statusDangerBg = Color(0xFFFEE2E2);
-
+  // Checklist status (unknown only — good/caution/danger reuse safety level colors above)
   static const statusUnknown = Color(0xFF4A7C65);
   static const statusUnknownBg = Color(0xFFECF5F0);
 
-  // Priority
-  static const priorityRequired = Color(0xFFDC2626);
-  static const priorityRecommended = Color(0xFFD97706);
-  static const priorityReference = Color(0xFF4A7C65);
 }

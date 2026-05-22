@@ -750,9 +750,7 @@ class _PropertyContent extends StatelessWidget {
         _InfoRow(label: '면적', value: info.area),
         if (info.purpose != null) _InfoRow(label: '용도', value: info.purpose!),
         if (info.buildYear != null)
-          _InfoRow(label: '건축연도', value: info.buildYear!, isLast: true)
-        else
-          const SizedBox.shrink(),
+          _InfoRow(label: '건축연도', value: info.buildYear!, isLast: true),
       ],
     );
   }

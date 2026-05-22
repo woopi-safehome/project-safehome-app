@@ -2,7 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/errors/app_exceptions.dart';
-import '../../core/services/api_client.dart'; // apiClientProvider 포함
+import '../../core/services/api_client.dart';
 import '../../core/services/logger.dart';
 
 const _tag = 'UploadNotifier';
@@ -60,9 +60,11 @@ class UploadNotifier extends AutoDisposeNotifier<UploadState> {
   }
 
   /// 업로드를 수행하고 성공 시 jobId를 반환한다.
-  Future<String?> upload(ApiClient apiClient) async {
+  Future<String?> upload() async {
     final file = state.selectedFile;
     if (file == null || file.path == null) return null;
+
+    final apiClient = ref.read(apiClientProvider);
 
     state = state.copyWith(uploading: true, errorMessage: null);
     AppLogger.info(_tag, 'upload start', context: {'file': file.name});

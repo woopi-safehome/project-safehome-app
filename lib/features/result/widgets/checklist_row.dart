@@ -17,9 +17,9 @@ class _ChecklistRowState extends State<ChecklistRow> {
   bool _expanded = false;
 
   (String label, Color color, Color bg) get _statusStyle => switch (widget.item.status) {
-        ChecklistStatus.good => ('양호', AppColors.statusGood, AppColors.statusGoodBg),
-        ChecklistStatus.caution => ('주의', AppColors.statusCaution, AppColors.statusCautionBg),
-        ChecklistStatus.danger => ('위험', AppColors.statusDanger, AppColors.statusDangerBg),
+        ChecklistStatus.good => ('양호', AppColors.safe, AppColors.safeBg),
+        ChecklistStatus.caution => ('주의', AppColors.caution, AppColors.cautionBg),
+        ChecklistStatus.danger => ('위험', AppColors.danger, AppColors.dangerBg),
         ChecklistStatus.unknown => ('확인불가', AppColors.statusUnknown, AppColors.statusUnknownBg),
       };
 
