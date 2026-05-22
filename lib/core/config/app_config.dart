@@ -1,6 +1,13 @@
 enum AppFlavor { dev, prd }
 
 class AppConfig {
+  static const String _envApiUrl =
+      String.fromEnvironment('API_URL', defaultValue: '');
+
+  /// API base URL — --dart-define=API_URL=... 로 주입, 미설정 시 기본값 사용
+  static String get apiBaseUrl =>
+      _envApiUrl.isNotEmpty ? _envApiUrl : 'http://devupii.store:38080';
+
   static late AppConfig _instance;
   static AppConfig get instance => _instance;
 

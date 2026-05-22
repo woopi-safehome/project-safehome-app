@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../config/app_config.dart';
 import 'token_storage.dart';
 
 enum TokenCheckResult { authenticated, unauthenticated, networkError }
@@ -9,10 +10,7 @@ enum TokenCheckResult { authenticated, unauthenticated, networkError }
 class AuthRepository {
   const AuthRepository._();
 
-  static const _baseUrl = String.fromEnvironment('API_URL', defaultValue: '');
-
-  static String get _url =>
-      _baseUrl.isNotEmpty ? _baseUrl : 'http://devupii.store:38080';
+  static String get _url => AppConfig.apiBaseUrl;
 
   static Future<TokenCheckResult> checkAndRefresh() async {
     if (!await TokenStorage.hasTokens()) return TokenCheckResult.unauthenticated;

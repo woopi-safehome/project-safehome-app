@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../core/constants/app_colors.dart';
-import '../models/deed.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../models/deed.dart';
 
 class ChecklistRow extends StatefulWidget {
   final ChecklistItem item;
@@ -17,11 +17,11 @@ class _ChecklistRowState extends State<ChecklistRow> {
   bool _expanded = false;
 
   (String label, Color color, Color bg) get _statusStyle => switch (widget.item.status) {
-    ChecklistStatus.good    => ('양호', AppColors.statusGood,    AppColors.statusGoodBg),
-    ChecklistStatus.caution => ('주의', AppColors.statusCaution, AppColors.statusCautionBg),
-    ChecklistStatus.danger  => ('위험', AppColors.statusDanger,  AppColors.statusDangerBg),
-    ChecklistStatus.unknown => ('확인불가', AppColors.statusUnknown, AppColors.statusUnknownBg),
-  };
+        ChecklistStatus.good => ('양호', AppColors.statusGood, AppColors.statusGoodBg),
+        ChecklistStatus.caution => ('주의', AppColors.statusCaution, AppColors.statusCautionBg),
+        ChecklistStatus.danger => ('위험', AppColors.statusDanger, AppColors.statusDangerBg),
+        ChecklistStatus.unknown => ('확인불가', AppColors.statusUnknown, AppColors.statusUnknownBg),
+      };
 
   bool get _hasAnalysis => widget.item.analysis != null;
 

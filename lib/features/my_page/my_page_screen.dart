@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../models/deed.dart';
-import '../../widgets/safety_badge.dart';
+import 'widgets/safety_badge.dart';
 import 'my_page_notifier.dart';
 
 class MyPageScreen extends ConsumerStatefulWidget {

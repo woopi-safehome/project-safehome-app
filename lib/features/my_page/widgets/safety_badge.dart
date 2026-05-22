@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../core/constants/app_colors.dart';
-import '../models/deed.dart';
+import '../../../core/constants/app_colors.dart';
+import '../../../models/deed.dart';
 
 class SafetyBadge extends StatelessWidget {
   final SafetyLevel level;

@@ -4,10 +4,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app.dart';
+import '../config/app_config.dart';
 import 'token_storage.dart';
 
-const _baseUrl = String.fromEnvironment('API_URL', defaultValue: '');
-String get _url => _baseUrl.isNotEmpty ? _baseUrl : 'http://devupii.store:38080';
+String get _url => AppConfig.apiBaseUrl;
 
 class _AuthInterceptor extends Interceptor {
   final Dio _dio;

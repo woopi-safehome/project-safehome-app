@@ -2,7 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/errors/app_exceptions.dart';
-import '../../core/services/api_client.dart';
+import '../../core/services/api_client.dart'; // apiClientProvider 포함
 import '../../core/services/logger.dart';
 
 const _tag = 'UploadNotifier';
@@ -97,5 +97,3 @@ class UploadNotifier extends AutoDisposeNotifier<UploadState> {
 final uploadNotifierProvider = AutoDisposeNotifierProvider<UploadNotifier, UploadState>(
   UploadNotifier.new,
 );
-
-final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());

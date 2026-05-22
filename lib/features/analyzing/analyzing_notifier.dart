@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/errors/app_exceptions.dart';
+import '../../core/services/api_client.dart';
 import '../../core/services/logger.dart';
 import '../../models/deed.dart';
-import '../upload/upload_notifier.dart';
 
 const _tag = 'AnalyzingNotifier';
 const _minStepDisplay = Duration(milliseconds: 1500);
@@ -45,10 +45,9 @@ const _sentinel = Object();
 // ─── Notifier ─────────────────────────────────────────────────────────────────
 
 class AnalyzingNotifier extends FamilyNotifier<AnalyzingState, String> {
-  Timer? _pollTimer;
+  StreamSubscription<SseEvent>? _sseSub;
   Timer? _stepTimer;
 
-  DeedJob? _latestJob;
   bool _serverCompleted = false;
   bool _serverFailed = false;
 
@@ -58,13 +57,10 @@ class AnalyzingNotifier extends FamilyNotifier<AnalyzingState, String> {
 
   @override
   AnalyzingState build(String jobId) {
-    ref.onDispose(() {
-      _pollTimer?.cancel();
-      _stepTimer?.cancel();
-    });
+    ref.onDispose(_stopAll);
     _stepStartTime = DateTime.now();
-    _startPolling(jobId);
-    return AnalyzingState(displayStep: AnalysisStep.pdfParsing);
+    _startSse(jobId);
+    return const AnalyzingState(displayStep: AnalysisStep.pdfParsing);
   }
 
   // ── 단계 전환 (최소 표시 시간 게이트) ───────────────────────────────────────
@@ -87,7 +83,6 @@ class AnalyzingNotifier extends FamilyNotifier<AnalyzingState, String> {
     final next = _pendingStep;
     _pendingStep = null;
     if (next != null) _applyStep(next);
-
     if (_pendingFinish) {
       _pendingFinish = false;
       _scheduleFinish();
@@ -120,67 +115,86 @@ class AnalyzingNotifier extends FamilyNotifier<AnalyzingState, String> {
     if (_serverFailed) {
       state = state.copyWith(errorMessage: '분석에 실패했습니다. 다시 시도해주세요.');
     } else if (_serverCompleted) {
-      state = state.copyWith(job: _latestJob, completed: true);
+      state = state.copyWith(completed: true);
     }
   }
 
-  // ── 2초 폴링 ──────────────────────────────────────────────────────────────────
+  // ── SSE 구독 ──────────────────────────────────────────────────────────────────
 
-  void _startPolling(String jobId) {
+  void _startSse(String jobId) {
     final apiClient = ref.read(apiClientProvider);
-    _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) async {
-      try {
-        final job = await apiClient.getJob(jobId);
-        AppLogger.info(_tag, 'poll', context: {'status': job.status.name, 'step': job.step?.name});
 
-        if (job.step != null) _scheduleStep(job.step!);
+    _sseSub = apiClient.streamJobEvents(jobId).listen(
+      (event) async {
+        AppLogger.info(_tag, 'SSE event', context: {
+          'status': event.status.name,
+          'step': event.step?.name,
+        });
 
-        if (job.status == JobStatus.completed) {
-          _pollTimer?.cancel();
-          _pollTimer = null;
-          _latestJob = job;
+        if (event.step != null) _scheduleStep(event.step!);
+
+        if (event.status == JobStatus.completed) {
+          _sseSub?.cancel();
+          _sseSub = null;
+
+          // SSE 최종 이벤트 수신 후 jobId로 전체 결과 조회
+          try {
+            final job = await apiClient.getJob(jobId);
+            state = state.copyWith(job: job);
+          } catch (e) {
+            AppLogger.error(_tag, 'getJob after SSE completed failed', error: e);
+            state = state.copyWith(errorMessage: '결과를 불러오지 못했습니다.');
+            return;
+          }
+
           _serverCompleted = true;
           _scheduleFinish();
-        } else if (job.status == JobStatus.failed) {
-          _pollTimer?.cancel();
-          _pollTimer = null;
+        } else if (event.status == JobStatus.failed) {
+          _sseSub?.cancel();
+          _sseSub = null;
           _serverFailed = true;
           _scheduleFinish();
         }
-      } on NetworkException catch (e) {
-        AppLogger.error(_tag, 'poll network error', error: e);
+      },
+      onError: (Object e) {
+        AppLogger.error(_tag, 'SSE error', error: e);
         _stopAll();
-        state = state.copyWith(errorMessage: '네트워크 연결을 확인하세요.');
-      } on ApiException catch (e) {
-        AppLogger.error(_tag, 'poll api error', error: e);
-        _stopAll();
-        state = state.copyWith(errorMessage: '서버 오류가 발생했습니다. (${e.statusCode})');
-      } catch (e) {
-        AppLogger.error(_tag, 'poll unexpected error', error: e);
-        _stopAll();
-        state = state.copyWith(errorMessage: '알 수 없는 오류가 발생했습니다.');
-      }
-    });
-  }
-
-  void _stopAll() {
-    _pollTimer?.cancel();
-    _pollTimer = null;
-    _stepTimer?.cancel();
+        if (e is NetworkException) {
+          state = state.copyWith(errorMessage: '네트워크 연결을 확인하세요.');
+        } else if (e is ApiException) {
+          state = state.copyWith(errorMessage: '서버 오류가 발생했습니다. (${e.statusCode})');
+        } else {
+          state = state.copyWith(errorMessage: '알 수 없는 오류가 발생했습니다.');
+        }
+      },
+      onDone: () {
+        // 스트림이 정상 종료됐는데 완료/실패 처리가 안 된 경우 — 연결 끊김으로 간주
+        if (!_serverCompleted && !_serverFailed) {
+          AppLogger.error(_tag, 'SSE stream closed unexpectedly');
+          state = state.copyWith(errorMessage: '연결이 끊어졌습니다. 다시 시도해주세요.');
+        }
+      },
+    );
   }
 
   // ── 재시도 ────────────────────────────────────────────────────────────────────
 
   void retry(String jobId) {
     _stopAll();
-    _latestJob = null;
     _serverCompleted = false;
     _serverFailed = false;
     _pendingStep = null;
     _pendingFinish = false;
     _stepStartTime = DateTime.now();
-    state = AnalyzingState(displayStep: AnalysisStep.pdfParsing);
-    _startPolling(jobId);
+    state = const AnalyzingState(displayStep: AnalysisStep.pdfParsing);
+    _startSse(jobId);
+  }
+
+  void _stopAll() {
+    _sseSub?.cancel();
+    _sseSub = null;
+    _stepTimer?.cancel();
+    _stepTimer = null;
   }
 }
 

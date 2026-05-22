@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../models/deed.dart';
-import '../../widgets/checklist_row.dart';
+import 'widgets/checklist_row.dart';
 import 'result_notifier.dart';
 
 class ResultScreen extends ConsumerWidget {

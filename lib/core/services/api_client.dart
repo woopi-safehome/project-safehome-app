@@ -1,27 +1,23 @@
 import 'dart:convert';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
-import '../../models/deed.dart';
+import '../config/app_config.dart';
 import '../errors/app_exceptions.dart';
+import '../../models/deed.dart';
 import 'logger.dart';
 import 'token_storage.dart';
 
 const String _tag = 'ApiClient';
 
-// --dart-define=API_URL=http://... 로 주입 가능
-const String _envApiUrl = String.fromEnvironment('API_URL', defaultValue: '');
-
-String get _baseUrl {
-  if (_envApiUrl.isNotEmpty) return _envApiUrl;
-  return 'http://devupii.store:38080';
-}
-
 class ApiClient {
   final http.Client _client;
 
   ApiClient({http.Client? client}) : _client = client ?? http.Client();
+
+  String get _baseUrl => AppConfig.apiBaseUrl;
 
   Future<Map<String, String>> _authHeaders() async {
     final token = await TokenStorage.getAccessToken();
@@ -29,18 +25,53 @@ class ApiClient {
     return {'Authorization': 'Bearer $token'};
   }
 
-  /// PDF 업로드 → SSE 스트림에서 jobId 추출
+  /// 카카오 로그인 → 서버 인증
+  Future<({String accessToken, String refreshToken, int expiresIn, bool isNewUser})>
+      login(String kakaoAccessToken) async {
+    final uri = Uri.parse('$_baseUrl/api/auth/kakao');
+
+    final http.Response response;
+    try {
+      response = await _client
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'kakaoAccessToken': kakaoAccessToken}),
+          )
+          .timeout(const Duration(seconds: 10));
+    } catch (e) {
+      throw NetworkException('서버에 연결할 수 없습니다.', uri.toString(), cause: e);
+    }
+
+    if (response.statusCode != 200) {
+      throw ApiException('HTTP ${response.statusCode}', response.statusCode, uri.toString());
+    }
+
+    try {
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final data = json['data'] as Map<String, dynamic>;
+      return (
+        accessToken: data['accessToken'] as String,
+        refreshToken: data['refreshToken'] as String,
+        expiresIn: data['expiresIn'] as int,
+        isNewUser: data['isNewUser'] as bool,
+      );
+    } catch (e) {
+      throw ParseException('로그인 응답 파싱 실패: $e');
+    }
+  }
+
+  /// PDF 업로드 → jobId 반환
   Future<String> uploadDeed(
     String filePath,
     String fileName,
     String mimeType, {
     String? leaseType,
   }) async {
-    final uri = Uri.parse('$_baseUrl/api/deed/analyze');
+    final uri = Uri.parse('$_baseUrl/api/deed/upload');
     AppLogger.info(_tag, 'uploadDeed start', context: {'uri': uri.toString()});
 
     final request = http.MultipartRequest('POST', uri)
-      ..headers['Accept'] = 'text/event-stream'
       ..headers.addAll(await _authHeaders());
 
     if (leaseType != null) {
@@ -76,48 +107,15 @@ class ApiClient {
       );
     }
 
-    String? jobId;
-    final buffer = StringBuffer();
-
     try {
-      await for (final chunk in streamed.stream.transform(utf8.decoder)) {
-        buffer.write(chunk);
-        final lines = buffer.toString().split('\n');
-        // 마지막 불완전 줄은 버퍼에 남김
-        buffer
-          ..clear()
-          ..write(lines.last);
-
-        for (final line in lines.sublist(0, lines.length - 1)) {
-          final trimmed = line.trim();
-          if (!trimmed.startsWith('data:')) continue;
-
-          final jsonStr = trimmed.substring(5).trim();
-          if (jsonStr.isEmpty) continue;
-
-          try {
-            final map = jsonDecode(jsonStr) as Map<String, dynamic>;
-            final event = SseEvent.fromJson(map);
-            jobId ??= event.jobId;
-            AppLogger.info(_tag, 'SSE event', context: {'status': event.status.name});
-          } catch (e) {
-            throw ParseException('SSE 파싱 실패: $e');
-          }
-        }
-
-        if (jobId != null) break;
-      }
+      final body = await streamed.stream.transform(utf8.decoder).join();
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      final jobId = (json['data'] as Map<String, dynamic>)['jobId'] as String;
+      AppLogger.info(_tag, 'uploadDeed done', context: {'jobId': jobId});
+      return jobId;
     } catch (e) {
-      if (e is ParseException) rethrow;
-      throw NetworkException('스트림 읽기 실패', uri.toString(), cause: e);
+      throw ParseException('업로드 응답 파싱 실패: $e');
     }
-
-    if (jobId == null) {
-      throw ParseException('jobId를 받지 못했습니다.');
-    }
-
-    AppLogger.info(_tag, 'uploadDeed done', context: {'jobId': jobId});
-    return jobId;
   }
 
   /// 작업 SSE 스트림 구독
@@ -191,8 +189,8 @@ class ApiClient {
 
     try {
       final json = jsonDecode(response.body) as Map<String, dynamic>;
-      // data.result 필드가 @JsonRawValue 로 문자열로 올 경우 처리
       final data = json['data'] as Map<String, dynamic>;
+      // Spring Boot @JsonRawValue result 필드: String으로 올 경우 이중 파싱
       if (data['result'] is String) {
         data['result'] = jsonDecode(data['result'] as String);
       }
@@ -241,3 +239,7 @@ class ApiClient {
     }
   }
 }
+
+// ─── Provider ─────────────────────────────────────────────────────────────────
+
+final apiClientProvider = Provider<ApiClient>((ref) => ApiClient());

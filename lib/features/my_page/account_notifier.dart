@@ -52,8 +52,8 @@ class AccountNotifier extends Notifier<AccountState> {
       await TokenStorage.clear();
       state = const AccountDone();
     } on DioException catch (e) {
-      final message = e.response?.data?['message'] as String?
-          ?? '탈퇴 처리에 실패했습니다. 다시 시도해 주세요.';
+      final message =
+          e.response?.data?['message'] as String? ?? '탈퇴 처리에 실패했습니다. 다시 시도해 주세요.';
       state = AccountError(message);
     } catch (_) {
       state = const AccountError('네트워크 오류가 발생했습니다. 다시 시도해 주세요.');

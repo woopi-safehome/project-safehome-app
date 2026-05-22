@@ -1,9 +1,8 @@
-import 'dart:convert';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:http/http.dart' as http;
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
+import '../../core/errors/app_exceptions.dart';
+import '../../core/services/api_client.dart';
 import '../../core/services/logger.dart';
 import '../../core/services/token_storage.dart';
 
@@ -30,9 +29,7 @@ class LoginError extends LoginState {
 }
 
 class LoginNotifier extends Notifier<LoginState> {
-  static const _baseUrl = String.fromEnvironment('API_URL', defaultValue: '');
-  static String get _url =>
-      _baseUrl.isNotEmpty ? _baseUrl : 'http://devupii.store:38080';
+  static const _tag = 'LoginNotifier';
 
   @override
   LoginState build() => const LoginIdle();
@@ -48,45 +45,32 @@ class LoginNotifier extends Notifier<LoginState> {
       if (e.reason == ClientErrorCause.cancelled) {
         state = const LoginIdle();
       } else {
-        state = LoginError('카카오 로그인에 실패했습니다.');
+        state = const LoginError('카카오 로그인에 실패했습니다.');
       }
       return;
     } catch (_) {
-      state = LoginError('카카오 로그인에 실패했습니다.');
+      state = const LoginError('카카오 로그인에 실패했습니다.');
       return;
     }
 
     // 2. 서버 인증
     try {
-      final response = await http
-          .post(
-            Uri.parse('$_url/api/auth/kakao'),
-            headers: {'Content-Type': 'application/json'},
-            body: jsonEncode({'kakaoAccessToken': kakaoAccessToken}),
-          )
-          .timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body) as Map<String, dynamic>;
-        final data = json['data'] as Map<String, dynamic>;
-        await TokenStorage.saveTokens(
-          accessToken: data['accessToken'] as String,
-          refreshToken: data['refreshToken'] as String,
-          expiresIn: data['expiresIn'] as int,
-        );
-        state = LoginSuccess(isNewUser: data['isNewUser'] as bool);
-      } else {
-        state = LoginError('서버 인증에 실패했습니다. 다시 시도해 주세요.');
-      }
-    } catch (e, st) {
-      AppLogger.error(
-        'LoginNotifier',
-        'POST /api/auth/kakao 네트워크 오류',
-        error: e,
-        stackTrace: st,
-        context: {'url': '$_url/api/auth/kakao'},
+      final result = await ref.read(apiClientProvider).login(kakaoAccessToken);
+      await TokenStorage.saveTokens(
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+        expiresIn: result.expiresIn,
       );
-      state = LoginError('네트워크 오류가 발생했습니다. 다시 시도해 주세요.');
+      state = LoginSuccess(isNewUser: result.isNewUser);
+    } on ApiException catch (e) {
+      AppLogger.error(_tag, '서버 인증 실패', error: e);
+      state = const LoginError('서버 인증에 실패했습니다. 다시 시도해 주세요.');
+    } on NetworkException catch (e) {
+      AppLogger.error(_tag, '네트워크 오류', error: e);
+      state = const LoginError('네트워크 오류가 발생했습니다. 다시 시도해 주세요.');
+    } catch (e) {
+      AppLogger.error(_tag, '알 수 없는 오류', error: e);
+      state = const LoginError('알 수 없는 오류가 발생했습니다.');
     }
   }
 
@@ -97,7 +81,6 @@ class LoginNotifier extends Notifier<LoginState> {
       try {
         token = await UserApi.instance.loginWithKakaoTalk();
       } catch (_) {
-        // 카카오톡 로그인 실패 시 웹뷰 fallback
         token = await UserApi.instance.loginWithKakaoAccount();
       }
     } else {
