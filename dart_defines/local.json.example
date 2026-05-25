@@ -1,0 +1,5 @@
+{
+  "KAKAO_NATIVE_APP_KEY": "여기에_네이티브_앱_키_입력",
+  "SENTRY_DSN": "",
+  "API_URL": "http://10.0.2.2:8080"
+}

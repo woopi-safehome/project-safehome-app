@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/constants/app_theme.dart';
+import 'core/services/fcm_service.dart';
 import 'features/analyzing/analyzing_screen.dart';
 import 'features/home/home_screen.dart';
 import 'features/login/login_screen.dart';
@@ -53,8 +54,19 @@ final appRouter = GoRouter(
   ],
 );
 
-class SafeHomeApp extends StatelessWidget {
+class SafeHomeApp extends StatefulWidget {
   const SafeHomeApp({super.key});
+
+  @override
+  State<SafeHomeApp> createState() => _SafeHomeAppState();
+}
+
+class _SafeHomeAppState extends State<SafeHomeApp> {
+  @override
+  void initState() {
+    super.initState();
+    FcmService.setupNotificationHandlers(appRouter);
+  }
 
   @override
   Widget build(BuildContext context) {

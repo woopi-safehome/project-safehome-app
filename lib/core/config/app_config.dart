@@ -5,8 +5,9 @@ class AppConfig {
       String.fromEnvironment('API_URL', defaultValue: '');
 
   /// API base URL — --dart-define=API_URL=... 로 주입, 미설정 시 기본값 사용
+  /// dart-define 미주입 시 에뮬레이터 기준 로컬 서버(10.0.2.2 = 호스트 localhost)로 폴백
   static String get apiBaseUrl =>
-      _envApiUrl.isNotEmpty ? _envApiUrl : 'http://devupii.store:38080';
+      _envApiUrl.isNotEmpty ? _envApiUrl : 'http://10.0.2.2:8080';
 
   static late AppConfig _instance;
   static AppConfig get instance => _instance;

@@ -1,9 +1,12 @@
-import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
-import '../../core/services/dio_client.dart';
+import '../../core/errors/app_exceptions.dart';
+import '../../core/services/api_client.dart';
+import '../../core/services/logger.dart';
 import '../../core/services/token_storage.dart';
+
+const _tag = 'AccountNotifier';
 
 sealed class AccountState {
   const AccountState();
@@ -30,8 +33,6 @@ class AccountNotifier extends Notifier<AccountState> {
   @override
   AccountState build() => const AccountIdle();
 
-  Dio get _dio => ref.read(dioClientProvider);
-
   /// 로그아웃: 카카오 세션 종료(실패 무관) → JWT 삭제
   Future<void> logout() async {
     state = const AccountLoading();
@@ -48,15 +49,18 @@ class AccountNotifier extends Notifier<AccountState> {
   Future<void> withdraw() async {
     state = const AccountLoading();
     try {
-      await _dio.delete('/api/users/me');
+      await ref.read(apiClientProvider).withdraw();
       await TokenStorage.clear();
       state = const AccountDone();
-    } on DioException catch (e) {
-      final message =
-          e.response?.data?['message'] as String? ?? '탈퇴 처리에 실패했습니다. 다시 시도해 주세요.';
-      state = AccountError(message);
-    } catch (_) {
+    } on ApiException catch (e) {
+      AppLogger.error(_tag, '탈퇴 실패 (API)', error: e);
+      state = const AccountError('탈퇴 처리에 실패했습니다. 다시 시도해 주세요.');
+    } on NetworkException catch (e) {
+      AppLogger.error(_tag, '탈퇴 실패 (Network)', error: e);
       state = const AccountError('네트워크 오류가 발생했습니다. 다시 시도해 주세요.');
+    } catch (e) {
+      AppLogger.error(_tag, '탈퇴 실패 (Unknown)', error: e);
+      state = const AccountError('알 수 없는 오류가 발생했습니다.');
     }
   }
 }

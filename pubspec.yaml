@@ -21,7 +21,6 @@ dependencies:
   # HTTP / API
   http: ^1.2.2
   http_parser: ^4.0.2
-  dio: ^5.7.0
 
   # 인증
   kakao_flutter_sdk_user: ">=1.9.0 <1.10.0"
@@ -29,6 +28,10 @@ dependencies:
 
   # 파일 선택
   file_picker: ^8.1.7
+
+  # Firebase
+  firebase_core: ^3.6.0
+  firebase_messaging: ^15.1.3
 
   # 에러 트래킹
   sentry_flutter: ^8.14.2

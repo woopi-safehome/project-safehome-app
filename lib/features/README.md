@@ -14,8 +14,8 @@ lib/
 │   │   └── app_exceptions.dart    # NetworkException, ApiException, ParseException
 │   └── services/
 │       ├── api_client.dart        # 모든 API 호출 + apiClientProvider
-│       ├── dio_client.dart        # Dio + 401 자동 갱신 인터셉터 + dioClientProvider
 │       ├── auth_repository.dart   # 앱 시작 시 토큰 유효성 체크 + 갱신
+│       ├── fcm_service.dart       # FCM 초기화, 토큰 발급, 알림 탭 핸들러
 │       ├── token_storage.dart     # flutter_secure_storage JWT 저장
 │       └── logger.dart            # Sentry breadcrumb 연동 로거
 ├── models/
@@ -24,42 +24,44 @@ lib/
     ├── splash/                    # 앱 시작 시 토큰 체크 → home/login 분기
     ├── login/                     # 카카오 로그인
     ├── onboarding/                # 온보딩
-    ├── home/                      # 메인 화면 (업로드 CTA, 로그아웃/탈퇴 메뉴)
+    ├── home/                      # 메인 화면 (업로드 CTA)
     ├── upload/                    # PDF 파일 선택 + 업로드
     ├── analyzing/                 # SSE 구독 + 분석 진행 화면
     ├── result/                    # 분석 결과 화면
     │   └── widgets/
-    │       └── checklist_row.dart # 안전 체크리스트 행 (result 전용)
-    └── my_page/                   # 분석 이력 목록
+    │       └── checklist_row.dart # 안전 체크리스트 행
+    └── my_page/                   # 분석 이력 목록 + 계정 관리
         ├── account_notifier.dart  # 로그아웃 / 회원탈퇴 상태 관리
         └── widgets/
-            └── safety_badge.dart  # SAFE/CAUTION/DANGER 배지 (my_page 전용)
+            └── safety_badge.dart  # SAFE/CAUTION/DANGER 배지
 ```
 
 ## 라우팅
 
 ```
-/splash         → SplashScreen   (토큰 체크 → home/login 분기)
-/login          → LoginScreen
-/onboarding     → OnboardingScreen
-/               → HomeScreen
-/upload         → UploadScreen
+/splash           → SplashScreen   (토큰 체크 → home/login 분기)
+/login            → LoginScreen
+/onboarding       → OnboardingScreen
+/                 → HomeScreen
+/upload           → UploadScreen
 /analyzing/:jobId → AnalyzingScreen
-/result/:jobId  → ResultScreen
-/my-page        → MyPageScreen
+/result/:jobId    → ResultScreen
+/my-page          → MyPageScreen
 ```
 
-## HTTP 클라이언트 분리
-
-| 클라이언트 | 용도 | 인증 처리 |
-|-----------|------|----------|
-| `ApiClient` (http 패키지) | SSE 스트리밍, 파일 업로드, 로그인 | 수동 Authorization 헤더 |
-| `Dio` (dio_client.dart) | 일반 인증 REST 호출 (회원탈퇴 등) | `_AuthInterceptor` 자동 401 갱신 |
-
-- **baseUrl**: `AppConfig.apiBaseUrl` 한 곳에서 관리
-- **`apiClientProvider`**: `core/services/api_client.dart`에 정의
-
 ## API 통신 흐름
+
+`ApiClient` (http 패키지) 하나로 모든 API 통신을 담당한다.
+
+| 메서드 | 엔드포인트 | 설명 |
+|--------|-----------|------|
+| `login()` | `POST /api/auth/kakao` | 카카오 액세스 토큰 → JWT 발급 |
+| `registerDevice()` | `POST /api/users/devices` | FCM 토큰 서버 등록 (upsert) |
+| `uploadDeed()` | `POST /api/deed/upload` | PDF 업로드 → jobId 반환 |
+| `streamJobEvents()` | `GET /api/deed/jobs/{jobId}/stream` | SSE → `Stream<SseEvent>` |
+| `getJob()` | `GET /api/deed/jobs/{jobId}` | 분석 결과 조회 |
+| `getMyJobs()` | `GET /api/deed/jobs` | 이력 목록 페이징 |
+| `withdraw()` | `DELETE /api/users/me` | 회원탈퇴 |
 
 ```
 ① POST /api/deed/upload (multipart)
@@ -71,39 +73,66 @@ lib/
      → DeedJob 전체 결과 fetch → Result 화면 이동
 ```
 
-- `login()`: `POST /api/auth/kakao` → Dart record 반환 (accessToken, refreshToken, expiresIn, isNewUser)
-- `uploadDeed()`: `POST /api/deed/upload` → jobId 반환
-- `streamJobEvents()`: `GET /jobs/{jobId}/stream` → `Stream<SseEvent>`
-- `getJob()`: `GET /jobs/{jobId}` → `DeedJob` (result 필드 이중 파싱 처리)
-- `getMyJobs()`: `GET /jobs` → `DeedJobsPage`
+> `result` 필드는 `@JsonRawValue`로 String 직렬화되므로 `getJob()` 내부에서 이중 파싱 처리.
+
+## FCM 푸시 알림 흐름
+
+### 디바이스 등록
+```
+앱 시작 (SplashNotifier.checkAuth — 토큰 유효)
+로그인 성공 (LoginNotifier.loginWithKakao)
+  ↓ FcmService.getToken()
+  ↓ ApiClient.registerDevice(fcmToken)
+  → POST /api/users/devices → user_devices 테이블 upsert
+```
+
+### 분석 완료 알림
+```
+API 서버 분석 완료 (AnalysisAsyncProcessor — COMPLETED)
+  ↓ user_devices에서 userId로 FCM 토큰 목록 조회
+  ↓ POST http://pigeon/api/messages/send (토큰별 호출)
+  ↓ project-pigeon → Firebase FCM 발송
+  → 디바이스 시스템 알림 표시
+```
+
+### 알림 탭 처리
+```
+사용자가 알림 탭
+  ↓ FcmService.setupNotificationHandlers (SafeHomeApp.initState에서 등록)
+  ├── 앱 종료 상태: getInitialMessage()
+  └── 앱 백그라운드: onMessageOpenedApp
+  ↓ message.data['jobId'] 추출
+  → router.go('/result/:jobId')
+```
 
 ## Riverpod 패턴
 
-- `Notifier` — `LoginNotifier`, `AccountNotifier`
-- `AutoDisposeNotifier` — `UploadNotifier`, `MyPageNotifier`
-- `FamilyNotifier` — `AnalyzingNotifier(jobId)`, `ResultNotifier(jobId)`
-- `Provider` — `apiClientProvider` (api_client.dart), `dioClientProvider` (dio_client.dart)
+| Notifier 유형 | 사용 기준 | 예시 |
+|--------------|----------|------|
+| `Notifier` | 앱 생명주기 동안 유지 | LoginNotifier, AccountNotifier |
+| `AutoDisposeNotifier` | 화면 이탈 시 자동 해제 | UploadNotifier, MyPageNotifier |
+| `FamilyNotifier<State, String>` | jobId 파라미터 필요 | AnalyzingNotifier, ResultNotifier |
 
 ## AnalyzingNotifier 동작
 
-1. `_startSse(jobId)` — SSE 구독 시작
-2. SSE 이벤트 수신 → `_scheduleStep()` (최소 1.5초 표시 게이트)
+1. `_startSse(jobId)` — SSE 구독 시작, 초기 표시 단계: `pdfParsing`
+2. SSE 이벤트 수신 → `_scheduleStep()` (최소 1.5초 표시 게이트, 큐 기반)
 3. `COMPLETED` 수신 → `getJob()` 호출 → `state.job` 세팅 → `completed: true`
-4. `FAILED` / 스트림 비정상 종료 → errorMessage 세팅
-5. `retry()` — SSE 재구독
+4. `FAILED` / 스트림 비정상 종료 → `errorMessage` 세팅
+5. `retry()` — 상태 초기화 후 SSE 재구독
 
 ## 도메인 모델 주요 타입 (lib/models/deed.dart)
 
 ```dart
-enum SafetyLevel    { safe, caution, danger }
-enum JobStatus      { pending, inProgress, completed, failed }
-enum AnalysisStep   { pdfParsing, llmAnalysis, postProcessing }
+enum SafetyLevel     { safe, caution, danger }
+enum JobStatus       { pending, inProgress, completed, failed }
+enum AnalysisStep    { pdfParsing, llmAnalysis, postProcessing }
 enum ChecklistStatus { good, caution, danger, unknown }
-enum LeaseType      { jeonse, wolse }
+enum LeaseType       { jeonse, wolse }
 
-class SseEvent  { jobId, status, step, message, timestamp }
-class DeedJob   { jobId, status, fileName, fileSize, step, result }
-class DeedAnalysis { isValidDeed, safetyLevel, propertyInfo, ... }
+class SseEvent    { jobId, status, step, message, timestamp }
+class DeedJob     { jobId, status, fileName, fileSize, step, result }
+class DeedAnalysis { isValidDeed, safetyLevel, propertyInfo, checklist, ... }
 ```
 
 모델 수정 후 반드시 코드 생성:

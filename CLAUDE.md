@@ -6,7 +6,11 @@
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs  # 모델 변경 시 필수
 
-# dev 실행
+# 로컬 실행 (로컬 Spring Boot 서버 대상, http://10.0.2.2:8080)
+flutter emulators --launch Pixel_6_API_36
+flutter run --dart-define-from-file=dart_defines/local.json
+
+# dev 실행 (개발 서버 대상, http://devupii.store:38080)
 flutter emulators --launch Pixel_6_API_36
 flutter run --dart-define-from-file=dart_defines/dev.json
 

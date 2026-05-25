@@ -19,6 +19,7 @@ lib/core/
     ├── dio_client.dart        # Dio 클라이언트 (인증 REST) + dioClientProvider
     ├── auth_repository.dart   # 앱 시작 시 토큰 유효성 체크 및 자동 갱신
     ├── token_storage.dart     # flutter_secure_storage JWT 저장소
+    ├── fcm_service.dart       # FCM 초기화·권한 요청·토큰 발급
     └── logger.dart            # AppLogger (Sentry breadcrumb 연동)
 ```
 
@@ -47,6 +48,7 @@ class AppConfig {
 | 메서드 | 설명 |
 |--------|------|
 | `login()` | `POST /api/auth/kakao` → `({accessToken, refreshToken, expiresIn, isNewUser})` |
+| `registerDevice()` | `POST /api/users/devices` — FCM 토큰 등록 (upsert). 실패 시 무시 |
 | `uploadDeed()` | `POST /api/deed/upload` (multipart) → `jobId` |
 | `streamJobEvents()` | `GET /api/deed/jobs/{jobId}/stream` → `Stream<SseEvent>` |
 | `getJob()` | `GET /api/deed/jobs/{jobId}` → `DeedJob` |
@@ -74,6 +76,23 @@ Dio + `_AuthInterceptor` 기반. 401 응답 시 refresh token으로 자동 갱�
 await tokenStorage.saveTokens(accessToken, refreshToken);
 final token = await tokenStorage.getAccessToken();
 await tokenStorage.clearTokens();
+```
+
+### services/fcm_service.dart
+
+Firebase Cloud Messaging 초기화·권한 요청·토큰 발급·알림 탭 핸들러를 담당하는 정적 서비스.
+
+| 메서드 | 설명 |
+|--------|------|
+| `initialize()` | 백그라운드 메시지 핸들러 등록 + 알림 권한 요청. `main()`에서 호출 |
+| `getToken()` | FCM 디바이스 토큰 발급. 업로드 시 API 서버로 전송 |
+| `setupNotificationHandlers(router)` | 알림 탭 → `/result/:jobId` 라우팅 등록. `SafeHomeApp.initState()`에서 호출 |
+
+**알림 탭 처리 흐름:**
+
+```
+앱 종료 상태  → getInitialMessage()   ─┐
+앱 백그라운드 → onMessageOpenedApp    ─┤→ message.data['jobId'] → router.go('/result/:jobId')
 ```
 
 ### services/logger.dart

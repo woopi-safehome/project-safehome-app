@@ -61,6 +61,27 @@ class ApiClient {
     }
   }
 
+  /// FCM 디바이스 토큰 등록 (upsert)
+  Future<void> registerDevice(String fcmToken) async {
+    final uri = Uri.parse('$_baseUrl/api/users/devices');
+    try {
+      await _client
+          .post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              ...await _authHeaders(),
+            },
+            body: jsonEncode({'fcmToken': fcmToken}),
+          )
+          .timeout(const Duration(seconds: 10));
+      AppLogger.info(_tag, 'registerDevice done');
+    } catch (e) {
+      // 디바이스 등록 실패는 앱 동작에 영향 없으므로 무시
+      AppLogger.error(_tag, 'registerDevice failed', error: e);
+    }
+  }
+
   /// PDF 업로드 → jobId 반환
   Future<String> uploadDeed(
     String filePath,
@@ -74,9 +95,7 @@ class ApiClient {
     final request = http.MultipartRequest('POST', uri)
       ..headers.addAll(await _authHeaders());
 
-    if (leaseType != null) {
-      request.fields['leaseType'] = leaseType;
-    }
+    if (leaseType != null) request.fields['leaseType'] = leaseType;
 
     try {
       final parts = mimeType.split('/');
@@ -197,6 +216,22 @@ class ApiClient {
       return DeedJob.fromJson(data);
     } catch (e) {
       throw ParseException('응답 파싱 실패: $e', jobId: jobId);
+    }
+  }
+
+  /// 회원 탈퇴
+  Future<void> withdraw() async {
+    final uri = Uri.parse('$_baseUrl/api/users/me');
+    final http.Response response;
+    try {
+      response = await _client
+          .delete(uri, headers: await _authHeaders())
+          .timeout(const Duration(seconds: 10));
+    } catch (e) {
+      throw NetworkException('서버에 연결할 수 없습니다.', uri.toString(), cause: e);
+    }
+    if (response.statusCode != 200) {
+      throw ApiException('HTTP ${response.statusCode}', response.statusCode, uri.toString());
     }
   }
 

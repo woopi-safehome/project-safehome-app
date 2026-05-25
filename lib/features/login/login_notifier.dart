@@ -3,6 +3,7 @@ import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
 import '../../core/errors/app_exceptions.dart';
 import '../../core/services/api_client.dart';
+import '../../core/services/fcm_service.dart';
 import '../../core/services/logger.dart';
 import '../../core/services/token_storage.dart';
 
@@ -61,6 +62,13 @@ class LoginNotifier extends Notifier<LoginState> {
         refreshToken: result.refreshToken,
         expiresIn: result.expiresIn,
       );
+
+      // FCM 디바이스 토큰 등록 (실패해도 로그인 흐름에 영향 없음)
+      final fcmToken = await FcmService.getToken();
+      if (fcmToken != null) {
+        await ref.read(apiClientProvider).registerDevice(fcmToken);
+      }
+
       state = LoginSuccess(isNewUser: result.isNewUser);
     } on ApiException catch (e) {
       AppLogger.error(_tag, '서버 인증 실패', error: e);
