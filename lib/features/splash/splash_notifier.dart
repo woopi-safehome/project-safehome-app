@@ -14,11 +14,18 @@ class SplashNotifier extends Notifier<SplashStatus> {
     final result = await AuthRepository.checkAndRefresh();
 
     if (result == TokenCheckResult.authenticated) {
+      final apiClient = ref.read(apiClientProvider);
+
       // 앱 재시작 시 FCM 토큰 갱신 등록 (실패해도 앱 동작에 영향 없음)
       final fcmToken = await FcmService.getToken();
       if (fcmToken != null) {
-        await ref.read(apiClientProvider).registerDevice(fcmToken);
+        await apiClient.registerDevice(fcmToken);
       }
+
+      // 토큰 갱신 시 서버에 자동 재등록
+      FcmService.setupTokenRefreshListener((token) async {
+        await apiClient.registerDevice(token);
+      });
     }
 
     state = switch (result) {

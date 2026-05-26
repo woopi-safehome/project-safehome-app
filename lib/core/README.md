@@ -85,7 +85,9 @@ Firebase Cloud Messaging 초기화·권한 요청·토큰 발급·알림 탭 핸
 | 메서드 | 설명 |
 |--------|------|
 | `initialize()` | 백그라운드 메시지 핸들러 등록 + 알림 권한 요청. `main()`에서 호출 |
-| `getToken()` | FCM 디바이스 토큰 발급. 업로드 시 API 서버로 전송 |
+| `getToken()` | FCM 디바이스 토큰 발급. 앱 시작/로그인 시 API 서버로 전송 |
+| `setupTokenRefreshListener(onRefresh)` | Firebase 토큰 갱신 감지 → `onRefresh(token)` 콜백 실행. 인증 확인 후 `SplashNotifier`에서 호출. 기존 구독은 자동 교체 |
+| `cancelTokenRefreshListener()` | 토큰 갱신 구독 해제. 로그아웃 시 `AccountNotifier`에서 호출 |
 | `setupNotificationHandlers(router)` | 알림 탭 → `/result/:jobId` 라우팅 등록. `SafeHomeApp.initState()`에서 호출 |
 
 **알림 탭 처리 흐름:**
@@ -93,6 +95,16 @@ Firebase Cloud Messaging 초기화·권한 요청·토큰 발급·알림 탭 핸
 ```
 앱 종료 상태  → getInitialMessage()   ─┐
 앱 백그라운드 → onMessageOpenedApp    ─┤→ message.data['jobId'] → router.go('/result/:jobId')
+```
+
+**토큰 갱신 자동 재등록 흐름:**
+
+```
+Firebase가 새 토큰 발급 (앱 재설치·토큰 만료 등)
+  → onTokenRefresh 스트림
+  → setupTokenRefreshListener 콜백
+  → ApiClient.registerDevice(새 토큰)
+  → user_devices 업데이트
 ```
 
 ### services/logger.dart

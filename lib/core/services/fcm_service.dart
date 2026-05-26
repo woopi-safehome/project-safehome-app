@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:go_router/go_router.dart';
 
@@ -12,6 +14,8 @@ Future<void> _onBackgroundMessage(RemoteMessage message) async {
 
 class FcmService {
   FcmService._();
+
+  static StreamSubscription<String>? _tokenRefreshSubscription;
 
   static Future<void> initialize() async {
     FirebaseMessaging.onBackgroundMessage(_onBackgroundMessage);
@@ -32,6 +36,21 @@ class FcmService {
     final token = await FirebaseMessaging.instance.getToken();
     AppLogger.info(_tag, 'FCM token issued', context: {'token': token ?? 'null'});
     return token;
+  }
+
+  /// 인증 완료 후 호출 — 토큰 갱신 시 서버에 자동 재등록
+  static void setupTokenRefreshListener(Future<void> Function(String token) onRefresh) {
+    _tokenRefreshSubscription?.cancel();
+    _tokenRefreshSubscription = FirebaseMessaging.instance.onTokenRefresh.listen((token) async {
+      AppLogger.info(_tag, 'FCM token refreshed', context: {'token': token});
+      await onRefresh(token);
+    });
+  }
+
+  /// 로그아웃 시 호출
+  static void cancelTokenRefreshListener() {
+    _tokenRefreshSubscription?.cancel();
+    _tokenRefreshSubscription = null;
   }
 
   /// 알림 탭 핸들러 등록 — SafeHomeApp.initState()에서 호출

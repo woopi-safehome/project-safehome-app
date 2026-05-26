@@ -3,6 +3,7 @@ import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart';
 
 import '../../core/errors/app_exceptions.dart';
 import '../../core/services/api_client.dart';
+import '../../core/services/fcm_service.dart';
 import '../../core/services/logger.dart';
 import '../../core/services/token_storage.dart';
 
@@ -41,6 +42,7 @@ class AccountNotifier extends Notifier<AccountState> {
     } catch (_) {
       // 카카오 서버 장애 시에도 로컬 JWT 삭제 후 진행
     }
+    FcmService.cancelTokenRefreshListener();
     await TokenStorage.clear();
     state = const AccountDone();
   }
