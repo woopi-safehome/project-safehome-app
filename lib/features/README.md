@@ -31,7 +31,7 @@ lib/
     │   └── widgets/
     │       └── checklist_row.dart # 안전 체크리스트 행
     └── my_page/                   # 분석 이력 목록 + 계정 관리
-        ├── account_notifier.dart  # 로그아웃 / 회원탈퇴 상태 관리
+        ├── account_notifier.dart  # 로그아웃(FCM 리스너 해제 포함) / 회원탈퇴 상태 관리
         └── widgets/
             └── safety_badge.dart  # SAFE/CAUTION/DANGER 배지
 ```
@@ -84,6 +84,28 @@ lib/
   ↓ FcmService.getToken()
   ↓ ApiClient.registerDevice(fcmToken)
   → POST /api/users/devices → user_devices 테이블 upsert
+```
+
+### 토큰 갱신 자동 재등록
+```
+인증 확인 후 SplashNotifier.checkAuth
+  ↓ FcmService.setupTokenRefreshListener 등록
+Firebase가 새 토큰 발급 (앱 재설치·토큰 만료 등)
+  ↓ onTokenRefresh 감지
+  ↓ ApiClient.registerDevice(새 토큰)
+  → user_devices 업데이트 (만료 토큰 교체)
+
+로그아웃 (AccountNotifier.logout)
+  ↓ FcmService.cancelTokenRefreshListener()
+  → 구독 해제
+```
+
+### 만료 토큰 처리
+```
+pigeon → FCM 발송 시 UNREGISTERED 수신
+  ↓ pigeon: 400 TOKEN_UNREGISTERED 반환
+  ↓ safehome-api PigeonNotificationAdapter: 토큰 감지
+  → user_devices에서 해당 토큰 삭제 (다음 발급 토큰으로 자동 교체됨)
 ```
 
 ### 분석 완료 알림
