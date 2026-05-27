@@ -24,6 +24,7 @@ allprojects {
             languageVersion.set(org.jetbrains.kotlin.gradle.dsl.KotlinVersion.KOTLIN_1_9)
         }
     }
+
 }
 
 tasks.register<Delete>("clean") {

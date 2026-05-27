@@ -19,7 +19,7 @@ lib/core/
     ├── dio_client.dart        # Dio 클라이언트 (인증 REST) + dioClientProvider
     ├── auth_repository.dart   # 앱 시작 시 토큰 유효성 체크 및 자동 갱신
     ├── token_storage.dart     # flutter_secure_storage JWT 저장소
-    ├── fcm_service.dart       # FCM 초기화·권한 요청·토큰 발급
+    ├── fcm_service.dart       # FCM 초기화·권한 요청·토큰 발급·포그라운드 알림
     └── logger.dart            # AppLogger (Sentry breadcrumb 연동)
 ```
 
@@ -80,14 +80,15 @@ await tokenStorage.clearTokens();
 
 ### services/fcm_service.dart
 
-Firebase Cloud Messaging 초기화·권한 요청·토큰 발급·알림 탭 핸들러를 담당하는 정적 서비스.
+Firebase Cloud Messaging 초기화·권한 요청·토큰 발급·포그라운드 알림·알림 탭 핸들러를 담당하는 정적 서비스.
 
 | 메서드 | 설명 |
 |--------|------|
-| `initialize()` | 백그라운드 메시지 핸들러 등록 + 알림 권한 요청. `main()`에서 호출 |
+| `initialize()` | 백그라운드 메시지 핸들러 등록 + 알림 권한 요청 + `flutter_local_notifications` 초기화 + Android 알림 채널 생성. `main()`에서 호출 |
 | `getToken()` | FCM 디바이스 토큰 발급. 앱 시작/로그인 시 API 서버로 전송 |
 | `setupTokenRefreshListener(onRefresh)` | Firebase 토큰 갱신 감지 → `onRefresh(token)` 콜백 실행. 인증 확인 후 `SplashNotifier`에서 호출. 기존 구독은 자동 교체 |
 | `cancelTokenRefreshListener()` | 토큰 갱신 구독 해제. 로그아웃 시 `AccountNotifier`에서 호출 |
+| `setupForegroundNotificationHandler({isEnabled})` | 포그라운드 상태에서 FCM 메시지 수신 시 `isEnabled()` 콜백이 true면 로컬 알림 표시. `SafeHomeApp.initState()`에서 설정 로드 후 호출 |
 | `setupNotificationHandlers(router)` | 알림 탭 → `/result/:jobId` 라우팅 등록. `SafeHomeApp.initState()`에서 호출 |
 
 **알림 탭 처리 흐름:**
@@ -105,6 +106,16 @@ Firebase가 새 토큰 발급 (앱 재설치·토큰 만료 등)
   → setupTokenRefreshListener 콜백
   → ApiClient.registerDevice(새 토큰)
   → user_devices 업데이트
+```
+
+**포그라운드 알림 처리 흐름:**
+
+```
+앱 포그라운드 상태에서 FCM 메시지 수신
+  → FirebaseMessaging.onMessage
+  → isEnabled() 확인 (foregroundNotificationProvider)
+  → true: flutter_local_notifications로 시스템 알림 표시
+  → false: 무시
 ```
 
 ### services/logger.dart

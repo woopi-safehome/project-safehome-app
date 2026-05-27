@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'core/constants/app_theme.dart';
 import 'core/services/fcm_service.dart';
 import 'features/analyzing/analyzing_screen.dart';
+import 'features/home/foreground_notification_provider.dart';
 import 'features/home/home_screen.dart';
 import 'features/login/login_screen.dart';
 import 'features/my_page/my_page_screen.dart';
@@ -54,18 +56,25 @@ final appRouter = GoRouter(
   ],
 );
 
-class SafeHomeApp extends StatefulWidget {
+class SafeHomeApp extends ConsumerStatefulWidget {
   const SafeHomeApp({super.key});
 
   @override
-  State<SafeHomeApp> createState() => _SafeHomeAppState();
+  ConsumerState<SafeHomeApp> createState() => _SafeHomeAppState();
 }
 
-class _SafeHomeAppState extends State<SafeHomeApp> {
+class _SafeHomeAppState extends ConsumerState<SafeHomeApp> {
   @override
   void initState() {
     super.initState();
     FcmService.setupNotificationHandlers(appRouter);
+
+    // SharedPreferences에서 설정 로드 후 포그라운드 핸들러 등록
+    ref.read(foregroundNotificationProvider.notifier).init().then((_) {
+      FcmService.setupForegroundNotificationHandler(
+        isEnabled: () => ref.read(foregroundNotificationProvider),
+      );
+    });
   }
 
   @override

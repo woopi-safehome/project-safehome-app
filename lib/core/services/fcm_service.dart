@@ -1,11 +1,17 @@
 import 'dart:async';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:go_router/go_router.dart';
 
 import 'logger.dart';
 
 const _tag = 'FcmService';
+
+const _channelId = 'safehome_foreground';
+const _channelName = 'SafeHome 포그라운드 알림';
+
+final _localNotifications = FlutterLocalNotificationsPlugin();
 
 @pragma('vm:entry-point')
 Future<void> _onBackgroundMessage(RemoteMessage message) async {
@@ -16,6 +22,7 @@ class FcmService {
   FcmService._();
 
   static StreamSubscription<String>? _tokenRefreshSubscription;
+  static StreamSubscription<RemoteMessage>? _foregroundSubscription;
 
   static Future<void> initialize() async {
     FirebaseMessaging.onBackgroundMessage(_onBackgroundMessage);
@@ -30,6 +37,22 @@ class FcmService {
       'notification permission',
       context: {'status': settings.authorizationStatus.toString()},
     );
+
+    // 로컬 알림 초기화
+    const android = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initSettings = InitializationSettings(android: android);
+    await _localNotifications.initialize(initSettings);
+
+    // Android 알림 채널 생성
+    const channel = AndroidNotificationChannel(
+      _channelId,
+      _channelName,
+      importance: Importance.high,
+    );
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(channel);
   }
 
   static Future<String?> getToken() async {
@@ -51,6 +74,35 @@ class FcmService {
   static void cancelTokenRefreshListener() {
     _tokenRefreshSubscription?.cancel();
     _tokenRefreshSubscription = null;
+  }
+
+  /// 포그라운드 알림 핸들러 등록 — app.dart initState에서 호출
+  /// [isEnabled] : 현재 설정 값을 반환하는 콜백
+  static void setupForegroundNotificationHandler({
+    required bool Function() isEnabled,
+  }) {
+    _foregroundSubscription?.cancel();
+    _foregroundSubscription = FirebaseMessaging.onMessage.listen((message) async {
+      if (!isEnabled()) return;
+      final notification = message.notification;
+      if (notification == null) return;
+
+      AppLogger.info(_tag, 'foreground message received', context: {'title': notification.title ?? ''});
+
+      await _localNotifications.show(
+        message.hashCode,
+        notification.title,
+        notification.body,
+        const NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channelId,
+            _channelName,
+            importance: Importance.high,
+            priority: Priority.high,
+          ),
+        ),
+      );
+    });
   }
 
   /// 알림 탭 핸들러 등록 — SafeHomeApp.initState()에서 호출

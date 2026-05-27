@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../my_page/account_notifier.dart';
+import 'foreground_notification_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -93,6 +94,11 @@ class HomeScreen extends ConsumerWidget {
           tooltip: '분석 이력',
           onPressed: () => context.push('/my-page'),
         ),
+        IconButton(
+          icon: const Icon(Icons.settings_outlined, color: AppColors.secondary),
+          tooltip: '설정',
+          onPressed: () => _showSettingsSheet(context, ref),
+        ),
         PopupMenuButton<_AccountAction>(
           icon: const Icon(Icons.account_circle_outlined, color: AppColors.secondary),
           color: Colors.white,
@@ -125,6 +131,17 @@ class HomeScreen extends ConsumerWidget {
         ),
         const SizedBox(width: 4),
       ],
+    );
+  }
+
+  void _showSettingsSheet(BuildContext context, WidgetRef ref) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _SettingsBottomSheet(ref: ref),
     );
   }
 
@@ -467,6 +484,78 @@ class _StepRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─── Settings Bottom Sheet ────────────────────────────────────────────────────
+
+class _SettingsBottomSheet extends StatelessWidget {
+  final WidgetRef ref;
+  const _SettingsBottomSheet({required this.ref});
+
+  @override
+  Widget build(BuildContext context) {
+    final foregroundEnabled = ref.watch(foregroundNotificationProvider);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            '설정',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: SwitchListTile(
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              title: const Text(
+                '앱 실행 중 푸시 알림',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              subtitle: const Text(
+                '앱이 열려있는 동안에도 분석 완료 알림을 표시합니다',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary,
+                  height: 1.4,
+                ),
+              ),
+              value: foregroundEnabled,
+              activeColor: AppColors.primary,
+              onChanged: (_) =>
+                  ref.read(foregroundNotificationProvider.notifier).toggle(),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

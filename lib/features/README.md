@@ -24,7 +24,8 @@ lib/
     ├── splash/                    # 앱 시작 시 토큰 체크 → home/login 분기
     ├── login/                     # 카카오 로그인
     ├── onboarding/                # 온보딩
-    ├── home/                      # 메인 화면 (업로드 CTA)
+    ├── home/                      # 메인 화면 (업로드 CTA + 설정)
+    │   └── foreground_notification_provider.dart  # 포그라운드 알림 설정 상태 (SharedPreferences 연동)
     ├── upload/                    # PDF 파일 선택 + 업로드
     ├── analyzing/                 # SSE 구독 + 분석 진행 화면
     ├── result/                    # 분석 결과 화면
@@ -114,7 +115,18 @@ API 서버 분석 완료 (AnalysisAsyncProcessor — COMPLETED)
   ↓ user_devices에서 userId로 FCM 토큰 목록 조회
   ↓ POST http://pigeon/api/messages/send (토큰별 호출)
   ↓ project-pigeon → Firebase FCM 발송
-  → 디바이스 시스템 알림 표시
+  ├── 앱 백그라운드/종료: 시스템 알림 자동 표시
+  └── 앱 포그라운드: setupForegroundNotificationHandler → 설정 ON 시 로컬 알림 표시
+```
+
+### 포그라운드 알림 설정
+```
+홈 화면 AppBar 설정 아이콘(⚙) 탭
+  → _SettingsBottomSheet 표시
+  → "앱 실행 중 푸시 알림" 토글
+  → foregroundNotificationProvider.toggle()
+  → SharedPreferences 저장 + 상태 업데이트
+  → FcmService.setupForegroundNotificationHandler의 isEnabled() 콜백에 즉시 반영
 ```
 
 ### 알림 탭 처리
@@ -131,9 +143,20 @@ API 서버 분석 완료 (AnalysisAsyncProcessor — COMPLETED)
 
 | Notifier 유형 | 사용 기준 | 예시 |
 |--------------|----------|------|
-| `Notifier` | 앱 생명주기 동안 유지 | LoginNotifier, AccountNotifier |
+| `Notifier` | 앱 생명주기 동안 유지 | LoginNotifier, AccountNotifier, ForegroundNotificationNotifier |
 | `AutoDisposeNotifier` | 화면 이탈 시 자동 해제 | UploadNotifier, MyPageNotifier |
 | `FamilyNotifier<State, String>` | jobId 파라미터 필요 | AnalyzingNotifier, ResultNotifier |
+
+### ForegroundNotificationNotifier
+
+`features/home/foreground_notification_provider.dart`
+
+| 메서드 | 설명 |
+|--------|------|
+| `init()` | SharedPreferences에서 설정값 로드. `SafeHomeApp.initState()`에서 호출 |
+| `toggle()` | 설정 ON/OFF 전환 + SharedPreferences 저장 |
+
+**Provider**: `foregroundNotificationProvider` — `NotifierProvider<ForegroundNotificationNotifier, bool>`
 
 ## AnalyzingNotifier 동작
 
