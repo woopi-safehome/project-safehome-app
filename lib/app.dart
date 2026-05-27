@@ -14,44 +14,55 @@ import 'features/result/result_screen.dart';
 import 'features/splash/splash_screen.dart';
 import 'features/upload/upload_screen.dart';
 
+Page<void> _fadePage(GoRouterState state, Widget child) =>
+    CustomTransitionPage<void>(
+      key: state.pageKey,
+      child: child,
+      transitionDuration: const Duration(milliseconds: 220),
+      transitionsBuilder: (_, animation, __, child) =>
+          FadeTransition(opacity: animation, child: child),
+    );
+
 final appRouter = GoRouter(
   initialLocation: '/splash',
   routes: [
     GoRoute(
       path: '/splash',
-      builder: (_, __) => const SplashScreen(),
+      pageBuilder: (_, state) => _fadePage(state, const SplashScreen()),
     ),
     GoRoute(
       path: '/login',
-      builder: (_, __) => const LoginScreen(),
+      pageBuilder: (_, state) => _fadePage(state, const LoginScreen()),
     ),
     GoRoute(
       path: '/onboarding',
-      builder: (_, __) => const OnboardingScreen(),
+      pageBuilder: (_, state) => _fadePage(state, const OnboardingScreen()),
     ),
     GoRoute(
       path: '/',
-      builder: (_, __) => const HomeScreen(),
+      pageBuilder: (_, state) => _fadePage(state, const HomeScreen()),
     ),
     GoRoute(
       path: '/upload',
-      builder: (_, __) => const UploadScreen(),
+      pageBuilder: (_, state) => _fadePage(state, const UploadScreen()),
     ),
     GoRoute(
       path: '/analyzing/:jobId',
-      builder: (_, state) => AnalyzingScreen(
-        jobId: state.pathParameters['jobId']!,
+      pageBuilder: (_, state) => _fadePage(
+        state,
+        AnalyzingScreen(jobId: state.pathParameters['jobId']!),
       ),
     ),
     GoRoute(
       path: '/result/:jobId',
-      builder: (_, state) => ResultScreen(
-        jobId: state.pathParameters['jobId']!,
+      pageBuilder: (_, state) => _fadePage(
+        state,
+        ResultScreen(jobId: state.pathParameters['jobId']!),
       ),
     ),
     GoRoute(
       path: '/my-page',
-      builder: (_, __) => const MyPageScreen(),
+      pageBuilder: (_, state) => _fadePage(state, const MyPageScreen()),
     ),
   ],
 );

@@ -75,7 +75,7 @@ class UploadScreen extends ConsumerWidget {
               _SectionHeader(
                 icon: Icons.home_work_rounded,
                 title: '임대 유형 선택',
-                subtitle: '선택하면 맞춤형 분석 결과를 제공해요',
+                subtitle: '전세 또는 월세를 선택해야 분석을 시작할 수 있어요',
               ),
               const SizedBox(height: 12),
               Row(
@@ -162,7 +162,7 @@ class UploadScreen extends ConsumerWidget {
 
               // 분석 시작 버튼
               GestureDetector(
-                onTap: (state.selectedFile == null || state.uploading)
+                onTap: (state.selectedFile == null || state.leaseType == null || state.uploading)
                     ? null
                     : () async {
                         final jobId = await notifier.upload();
@@ -174,7 +174,7 @@ class UploadScreen extends ConsumerWidget {
                   duration: const Duration(milliseconds: 200),
                   height: 56,
                   decoration: BoxDecoration(
-                    color: state.selectedFile != null && !state.uploading
+                    color: state.selectedFile != null && state.leaseType != null && !state.uploading
                         ? AppColors.primary
                         : AppColors.border,
                     borderRadius: BorderRadius.circular(16),
@@ -194,7 +194,7 @@ class UploadScreen extends ConsumerWidget {
                             children: [
                               Icon(
                                 Icons.search_rounded,
-                                color: state.selectedFile != null
+                                color: state.selectedFile != null && state.leaseType != null
                                     ? Colors.white
                                     : AppColors.textMuted,
                                 size: 20,
@@ -205,7 +205,7 @@ class UploadScreen extends ConsumerWidget {
                                 style: TextStyle(
                                   fontSize: 17,
                                   fontWeight: FontWeight.w700,
-                                  color: state.selectedFile != null
+                                  color: state.selectedFile != null && state.leaseType != null
                                       ? Colors.white
                                       : AppColors.textMuted,
                                 ),

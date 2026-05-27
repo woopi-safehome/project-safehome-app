@@ -141,7 +141,7 @@ class HomeScreen extends ConsumerWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => _SettingsBottomSheet(ref: ref),
+      builder: (_) => const _SettingsBottomSheet(),
     );
   }
 
@@ -490,12 +490,11 @@ class _StepRow extends StatelessWidget {
 
 // ─── Settings Bottom Sheet ────────────────────────────────────────────────────
 
-class _SettingsBottomSheet extends StatelessWidget {
-  final WidgetRef ref;
-  const _SettingsBottomSheet({required this.ref});
+class _SettingsBottomSheet extends ConsumerWidget {
+  const _SettingsBottomSheet();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final foregroundEnabled = ref.watch(foregroundNotificationProvider);
 
     return Padding(
