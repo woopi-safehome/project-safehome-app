@@ -1,4 +1,11 @@
-# App 기능 상세
+# features — 화면별 기능 상세
+
+화면 단위로 `{name}_screen.dart`(UI) + `{name}_notifier.dart`(상태) 쌍을 둔다.
+새 화면을 만들 때는 `upload/`를 참조 구현으로 본다.
+
+> **범위**: `lib/features/**` (+ 참조 편의를 위해 `lib/core/`·`lib/models/` 구조 포함)
+> **상위**: [App README](../../README.md) (라우트 표·플레이버) · **연관**: [`lib/core/README.md`](../core/README.md)
+> **검증**: 라우트는 `lib/app.dart`, 모델 타입은 `lib/models/deed.dart`와 대조
 
 ## 디렉토리 구조
 

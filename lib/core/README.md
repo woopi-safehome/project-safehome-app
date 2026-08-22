@@ -3,6 +3,10 @@
 앱 전체에서 공유되는 설정, 상수, 에러, 서비스 모듈.
 기능 화면(`features/`)에서 직접 의존하며, `core` 내부 모듈 간 상호 의존은 최소화한다.
 
+> **범위**: `lib/core/**`
+> **상위**: [App README](../../README.md) · **연관**: [`lib/features/README.md`](../features/README.md)
+> **검증**: 파일 목록은 이 디렉토리와 1:1, API 메서드는 `api_client.dart`와 대조
+
 ## 디렉토리 구조
 
 ```
@@ -15,13 +19,16 @@ lib/core/
 ├── errors/
 │   └── app_exceptions.dart    # NetworkException, ApiException, ParseException
 └── services/
-    ├── api_client.dart        # HTTP 클라이언트 (SSE·업로드·로그인) + apiClientProvider
-    ├── dio_client.dart        # Dio 클라이언트 (인증 REST) + dioClientProvider
+    ├── api_client.dart        # 모든 API 호출 (SSE·업로드 포함) + apiClientProvider
     ├── auth_repository.dart   # 앱 시작 시 토큰 유효성 체크 및 자동 갱신
     ├── token_storage.dart     # flutter_secure_storage JWT 저장소
     ├── fcm_service.dart       # FCM 초기화·권한 요청·토큰 발급·포그라운드 알림
     └── logger.dart            # AppLogger (Sentry breadcrumb 연동)
 ```
+
+> HTTP 클라이언트는 **`http` 패키지 하나만** 쓴다. SSE 스트리밍과 멀티파트 업로드를 같은 방식으로
+> 다루기 위해서다. Dio·인터셉터 기반 자동 재시도 계층은 없다 — 401 처리는 `AuthRepository`가
+> 앱 시작 시점에 한 번 수행한다.
 
 ## 모듈 상세
 
@@ -43,30 +50,36 @@ class AppConfig {
 
 ### services/api_client.dart
 
-`http` 패키지 기반. SSE 스트리밍·멀티파트 업로드·로그인처럼 Dio 인터셉터가 맞지 않는 케이스에 사용.
+`http` 패키지 기반. 앱의 **모든** API 호출이 이 클래스를 통한다.
 
 | 메서드 | 설명 |
 |--------|------|
 | `login()` | `POST /api/auth/kakao` → `({accessToken, refreshToken, expiresIn, isNewUser})` |
-| `registerDevice()` | `POST /api/users/devices` — FCM 토큰 등록 (upsert). 실패 시 무시 |
-| `uploadDeed()` | `POST /api/deed/upload` (multipart) → `jobId` |
+| `registerDevice()` | `POST /api/users/devices` — FCM 토큰 등록 (upsert). **실패해도 예외를 던지지 않고 로그만 남긴다** |
+| `uploadDeed()` | `POST /api/deed/upload` (multipart, `leaseType` 선택) → `jobId` |
 | `streamJobEvents()` | `GET /api/deed/jobs/{jobId}/stream` → `Stream<SseEvent>` |
 | `getJob()` | `GET /api/deed/jobs/{jobId}` → `DeedJob` |
-| `getMyJobs()` | `GET /api/deed/jobs` → `DeedJobsPage` |
+| `getMyJobs()` | `GET /api/deed/jobs?page&size` → `DeedJobsPage` |
+| `withdraw()` | `DELETE /api/users/me` — 회원 탈퇴 |
+
+- 인증이 필요한 호출은 `_authHeaders()`가 `TokenStorage`에서 액세스 토큰을 읽어 `Authorization: Bearer`를 붙인다. 토큰이 없으면 헤더 없이 나간다.
+- `getJob()`은 서버의 `@JsonRawValue` 때문에 `result`가 String으로 오는 경우 한 번 더 `jsonDecode`한다.
+- `streamJobEvents()`는 SSE 전용 패키지 없이 직접 파싱한다. 청크가 줄 중간에서 끊길 수 있어 버퍼로 마지막 조각을 다음 청크로 이월한다.
 
 **Provider**: `apiClientProvider` (이 파일에 정의)
 
-### services/dio_client.dart
-
-Dio + `_AuthInterceptor` 기반. 401 응답 시 refresh token으로 자동 갱신 후 재시도.
-회원탈퇴 등 일반 인증 REST 호출에 사용.
-
-**Provider**: `dioClientProvider`
-
 ### services/auth_repository.dart
 
-앱 시작(`SplashScreen`) 시 저장된 토큰의 유효성을 확인하고 만료 시 자동 갱신.
-결과에 따라 `/home` 또는 `/login`으로 분기.
+앱 시작(`SplashScreen`) 시 저장된 토큰의 유효성을 확인하고 만료 시 `POST /api/auth/refresh`로 갱신한다.
+정적 메서드만 있는 클래스로, 프로바이더를 거치지 않는다.
+
+```dart
+enum TokenCheckResult { authenticated, unauthenticated, networkError }
+final result = await AuthRepository.checkAndRefresh();
+```
+
+분기 자체는 `SplashNotifier`가 한다 — `authenticated` → `/`, 그 외 → `/login`.
+`networkError`를 별도 값으로 두는 이유는, 서버가 잠깐 죽었을 때 로그인 상태를 지우지 않기 위해서다.
 
 ### services/token_storage.dart
 

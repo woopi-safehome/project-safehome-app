@@ -2,6 +2,10 @@
 
 Flutter는 `.env` 대신 `--dart-define-from-file`로 빌드 타임 환경 변수를 주입한다.
 
+> **범위**: `dart_defines/**`
+> **상위**: [App README](../README.md) · **연관**: 값을 읽는 쪽 → `lib/core/config/app_config.dart`
+> **검증**: 변수명은 `String.fromEnvironment(...)` 호출부(`app_config.dart`, `main.dart`)와 대조
+
 ## 파일 구조
 
 ```
