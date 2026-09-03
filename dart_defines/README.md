@@ -1,72 +1,56 @@
-# dart_defines — 환경 변수 설정
+# dart_defines — 환경 변수
 
-Flutter는 `.env` 대신 `--dart-define-from-file`로 빌드 타임 환경 변수를 주입한다.
+이 플랫폼은 런타임 `.env` 대신 **빌드 시점에 값을 주입**한다. 환경별 정의 파일이 여기 있다.
 
 > **범위**: `dart_defines/**`
-> **상위**: [App README](../README.md) · **연관**: 값을 읽는 쪽 → `lib/core/config/app_config.dart`
-> **검증**: 변수명은 `String.fromEnvironment(...)` 호출부(`app_config.dart`, `main.dart`)와 대조
+> **상위**: [App README](../README.md) · **연관**: 값을 읽는 쪽 → 공통 설정 모듈
+> **여기 없는 것**: 파일 목록과 각 환경의 실제 주소 — 디렉터리와 `*.example` 파일이 답한다.
 
-## 파일 구조
+---
 
-```
-dart_defines/
-├── local.json          # 로컬 개발용 (gitignore — 실제 키 포함)
-├── local.json.example  # 로컬 개발 템플릿 (커밋됨)
-├── dev.json            # 개발 서버용 (gitignore — 실제 키 포함)
-├── dev.json.example    # 개발 서버 템플릿 (커밋됨)
-├── prd.json            # 운영 환경용 (gitignore — 실제 키 포함)
-└── prd.json.example    # 운영 환경 템플릿 (커밋됨)
-```
+## 구조
 
-> `*.json`은 실제 시크릿을 포함하므로 `.gitignore`에 등록되어 있다. `*.json.example`만 커밋된다.
+환경마다 **실제 값 파일과 예시 파일이 짝**을 이룬다.
+실제 값 파일은 시크릿을 포함하므로 커밋되지 않고, **예시 파일만 커밋된다.**
 
-## 환경별 API URL
+새 환경을 추가하면 예시 파일도 함께 만든다. 없으면 다른 사람이 무엇을 채워야 하는지 알 수 없다.
 
-| 환경 | `API_URL` | 설명 |
-|------|-----------|------|
-| `local` | `http://10.0.2.2:8080` | 에뮬레이터에서 호스트 localhost:8080 접근 |
-| `dev` | `http://devupii.store:38080` | 개발 서버 |
-| `prd` | `https://api.safehome.com` | 운영 서버 (배포 전 교체 필요) |
+---
 
-> `10.0.2.2`는 Android 에뮬레이터에서 호스트 머신의 localhost를 가리키는 주소다.
-> dart-define 미주입 시 `AppConfig.apiBaseUrl`이 `http://10.0.2.2:8080`으로 폴백한다.
+## 넘겨야 하는 값
 
-## 환경 변수 목록
+| 변수 | 쓰임 |
+|---|---|
+| `API_URL` | 서버 주소 |
+| `KAKAO_NATIVE_APP_KEY` | 소셜 로그인 네이티브 앱 키 |
+| `SENTRY_DSN` | 오류 추적 (없으면 비활성) |
 
-| 변수명 | 설명 |
-|--------|------|
-| `API_URL` | API 서버 base URL |
-| `KAKAO_NATIVE_APP_KEY` | 카카오 로그인 네이티브 앱 키 |
-| `SENTRY_DSN` | Sentry 오류 추적 DSN (없으면 Sentry 비활성) |
+이름을 바꾸면 **읽는 쪽도 함께 고쳐야 한다.** 값이 비면 예외가 아니라 **빈 문자열로 컴파일된다.**
 
-## 초기 설정 방법
+---
 
-```bash
-# 로컬 개발
-cp dart_defines/local.json.example dart_defines/local.json
-# local.json 열어서 KAKAO_NATIVE_APP_KEY 입력
+## 조용히 깨지는 것들
 
-# 개발 서버
-cp dart_defines/dev.json.example dart_defines/dev.json
-# dev.json 열어서 키 값 입력
-```
+- **정의 파일을 주입하지 않고 실행하면 빌드는 성공하고 로그인만 실패한다.**
+  키가 빈 값으로 들어가기 때문이다. 준비된 스크립트를 쓰면 이 실수를 막을 수 있다.
+- **소셜 로그인 키는 여기 넣는 것만으로 부족하다.** 네이티브 빌드가 인증 리다이렉트 주소를 만들 때
+  **별도 설정 파일을 직접 읽는다.** 한 곳만 채우면 빌드는 되고 로그인에서 실패한다.
+- **서버 주소가 없으면 기본값으로 넘어간다.** 실패하지 않으므로,
+  엉뚱한 서버를 보고 있는 줄 모른 채 디버깅하게 된다.
 
-## 실행 명령
+---
 
-```bash
-# 로컬 (로컬 Spring Boot 서버 대상)
-flutter run --dart-define-from-file=dart_defines/local.json
+## 에뮬레이터에서 로컬 서버 붙이기
 
-# 개발 서버
-flutter run --dart-define-from-file=dart_defines/dev.json
+안드로이드 에뮬레이터에서 `localhost`는 **에뮬레이터 자신**을 가리킨다.
+호스트 기계의 서버에 붙으려면 에뮬레이터가 호스트를 가리키는 전용 주소를 써야 한다.
+실기기에서 테스트할 때는 다시 호스트의 실제 IP로 덮어써야 한다.
 
-# 운영
-flutter run -t lib/main_prd.dart --dart-define-from-file=dart_defines/prd.json
-```
+---
 
 ## 키 발급처
 
-| 변수 | 발급처 |
-|------|-------|
-| `KAKAO_NATIVE_APP_KEY` | [Kakao Developers](https://developers.kakao.com) → 앱 → 앱 키 → 네이티브 앱 키 |
-| `SENTRY_DSN` | [Sentry](https://sentry.io) → 프로젝트 → Settings → Client Keys (DSN) |
+| 변수 | 어디서 |
+|---|---|
+| 소셜 로그인 키 | 카카오 개발자 콘솔 → 앱 → 앱 키 → 네이티브 앱 키 |
+| 오류 추적 DSN | Sentry → 프로젝트 → Settings → Client Keys |

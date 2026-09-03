@@ -1,150 +1,72 @@
-# core — 공통 인프라 계층
+# core — 공통 인프라
 
-앱 전체에서 공유되는 설정, 상수, 에러, 서비스 모듈.
-기능 화면(`features/`)에서 직접 의존하며, `core` 내부 모듈 간 상호 의존은 최소화한다.
+앱 전체가 공유하는 설정·테마·에러·서비스. 화면 계층이 여기에 의존하며, **역방향 의존은 없다.**
 
 > **범위**: `lib/core/**`
 > **상위**: [App README](../../README.md) · **연관**: [`lib/features/README.md`](../features/README.md)
-> **검증**: 파일 목록은 이 디렉토리와 1:1, API 메서드는 `api_client.dart`와 대조
+> **여기 없는 것**: 파일·클래스·메서드 목록 — 디렉터리와 코드가 답한다.
 
-## 디렉토리 구조
+---
 
-```
-lib/core/
-├── config/
-│   └── app_config.dart        # AppFlavor, apiBaseUrl, sentryDsn 중앙 관리
-├── constants/
-│   ├── app_colors.dart        # 브랜드 색상 팔레트
-│   └── app_theme.dart         # ThemeData (Light/Dark)
-├── errors/
-│   └── app_exceptions.dart    # NetworkException, ApiException, ParseException
-└── services/
-    ├── api_client.dart        # 모든 API 호출 (SSE·업로드 포함) + apiClientProvider
-    ├── auth_repository.dart   # 앱 시작 시 토큰 유효성 체크 및 자동 갱신
-    ├── token_storage.dart     # flutter_secure_storage JWT 저장소
-    ├── fcm_service.dart       # FCM 초기화·권한 요청·토큰 발급·포그라운드 알림
-    └── logger.dart            # AppLogger (Sentry breadcrumb 연동)
-```
+## 무엇이 여기 있나
 
-> HTTP 클라이언트는 **`http` 패키지 하나만** 쓴다. SSE 스트리밍과 멀티파트 업로드를 같은 방식으로
-> 다루기 위해서다. Dio·인터셉터 기반 자동 재시도 계층은 없다 — 401 처리는 `AuthRepository`가
-> 앱 시작 시점에 한 번 수행한다.
+설정(환경별 값), 테마와 색상, 예외 타입, 그리고 서비스들 — 서버 통신, 토큰 저장,
+앱 시작 시 인증 확인, 푸시, 로깅.
 
-## 모듈 상세
+---
 
-### config/app_config.dart
+## 서버 통신 — 얇게 유지한다
 
-```dart
-enum AppFlavor { dev, prd }
+**HTTP 라이브러리를 하나만 쓴다.** 스트리밍 구독과 파일 업로드를 같은 방식으로 다루기 위해서다.
+인터셉터 기반 계층을 두지 않았으므로 **요청 실패 시 자동 재시도나 자동 토큰 갱신이 없다.**
 
-class AppConfig {
-  static String get apiBaseUrl   // dart-define API_URL → 미설정 시 기본값
-  final AppFlavor flavor
-  final String sentryDsn
-  final double tracesSampleRate  // prd: 0.1 / dev: 1.0
-}
-```
+> 토큰 갱신은 **앱 시작 시 한 번**만 일어난다.
+> 사용 중 토큰이 만료되면 그 요청은 실패한다. 화면이 그 실패를 감당해야 한다.
 
-- `AppConfig.init(flavor)` — `main.dart`에서 Sentry 초기화 전 호출
-- `AppConfig.instance` — 싱글톤 접근
+**모든 서버 호출은 한 곳에 모은다.** 화면에서 직접 HTTP를 부르면 인증 헤더 처리와
+응답 형식 처리가 흩어지고, 계약이 바뀔 때 빠뜨리는 곳이 생긴다.
 
-### services/api_client.dart
+### 조용히 깨지는 것
 
-`http` 패키지 기반. 앱의 **모든** API 호출이 이 클래스를 통한다.
+- **토큰이 없으면 인증 헤더 없이 그대로 나간다.** 예외가 아니다.
+  보호된 엔드포인트를 인증 없이 부르면 서버가 거절하는데, 클라이언트에서는 그냥 실패로 보인다.
+- **스트리밍 응답은 직접 파싱한다.** 전용 라이브러리가 없어서,
+  **데이터 조각이 줄 중간에서 끊길 수 있다.** 남은 조각을 다음 조각으로 이월하는 처리가 있으며,
+  이걸 건드리면 간헐적으로 이벤트를 잃는다.
+- **분석 결과 필드는 서버가 JSON 원본으로 내려준다.** 문자열로 들어오는 경우가 있어 한 번 더 해석한다.
+- **푸시 토큰 등록 실패는 예외를 던지지 않는다.** 로그만 남기고 넘어간다.
+  등록이 안 돼도 앱은 정상 동작하지만 **알림만 오지 않는다.**
 
-| 메서드 | 설명 |
-|--------|------|
-| `login()` | `POST /api/auth/kakao` → `({accessToken, refreshToken, expiresIn, isNewUser})` |
-| `registerDevice()` | `POST /api/users/devices` — FCM 토큰 등록 (upsert). **실패해도 예외를 던지지 않고 로그만 남긴다** |
-| `uploadDeed()` | `POST /api/deed/upload` (multipart, `leaseType` 선택) → `jobId` |
-| `streamJobEvents()` | `GET /api/deed/jobs/{jobId}/stream` → `Stream<SseEvent>` |
-| `getJob()` | `GET /api/deed/jobs/{jobId}` → `DeedJob` |
-| `getMyJobs()` | `GET /api/deed/jobs?page&size` → `DeedJobsPage` |
-| `withdraw()` | `DELETE /api/users/me` — 회원 탈퇴 |
+---
 
-- 인증이 필요한 호출은 `_authHeaders()`가 `TokenStorage`에서 액세스 토큰을 읽어 `Authorization: Bearer`를 붙인다. 토큰이 없으면 헤더 없이 나간다.
-- `getJob()`은 서버의 `@JsonRawValue` 때문에 `result`가 String으로 오는 경우 한 번 더 `jsonDecode`한다.
-- `streamJobEvents()`는 SSE 전용 패키지 없이 직접 파싱한다. 청크가 줄 중간에서 끊길 수 있어 버퍼로 마지막 조각을 다음 청크로 이월한다.
+## 앱 시작 시 인증 확인
 
-**Provider**: `apiClientProvider` (이 파일에 정의)
+저장된 토큰을 확인하고, 만료됐으면 갱신을 시도한 뒤 화면을 정한다.
 
-### services/auth_repository.dart
+결과는 **세 가지**다 — 인증됨 / 인증 안 됨 / **네트워크 오류**.
 
-앱 시작(`SplashScreen`) 시 저장된 토큰의 유효성을 확인하고 만료 시 `POST /api/auth/refresh`로 갱신한다.
-정적 메서드만 있는 클래스로, 프로바이더를 거치지 않는다.
+> 네트워크 오류를 따로 두는 것이 핵심이다.
+> 이걸 "인증 안 됨"으로 합치면 **서버가 잠깐 죽었을 때 사용자가 로그아웃된다.**
+> 서버 장애로 로그인 상태를 지우지 않는다.
 
-```dart
-enum TokenCheckResult { authenticated, unauthenticated, networkError }
-final result = await AuthRepository.checkAndRefresh();
-```
+---
 
-분기 자체는 `SplashNotifier`가 한다 — `authenticated` → `/`, 그 외 → `/login`.
-`networkError`를 별도 값으로 두는 이유는, 서버가 잠깐 죽었을 때 로그인 상태를 지우지 않기 위해서다.
+## 푸시
 
-### services/token_storage.dart
+초기화(권한 요청, 채널 생성)는 앱 진입점에서, 화면 관련 처리(포그라운드 표시, 알림 탭)는 앱 위젯에서 등록한다.
+**진입점이 여러 개면 초기화를 모두에 넣어야 한다** — 빠뜨리면 그 빌드에서만 조용히 죽는다.
 
-`flutter_secure_storage`를 래핑. JWT access/refresh token CRUD.
+**푸시 토큰은 저절로 바뀐다** (재설치, 만료 등). 갱신을 감지해 서버에 다시 등록하는 구독이 있으며,
+이게 없으면 **어느 날부터 알림이 오지 않는데 아무 에러도 없다.**
+로그아웃 시에는 이 구독을 해제한다.
 
-```dart
-await tokenStorage.saveTokens(accessToken, refreshToken);
-final token = await tokenStorage.getAccessToken();
-await tokenStorage.clearTokens();
-```
+알림 탭은 **앱이 종료 상태였는지 백그라운드였는지에 따라 경로가 다르다.** 두 경우를 모두 처리해야
+어느 상태에서 눌러도 같은 화면으로 간다.
 
-### services/fcm_service.dart
+포그라운드에서는 시스템이 알림을 자동 표시하지 않는다. 직접 띄우며, 사용자가 끌 수 있다.
 
-Firebase Cloud Messaging 초기화·권한 요청·토큰 발급·포그라운드 알림·알림 탭 핸들러를 담당하는 정적 서비스.
+---
 
-| 메서드 | 설명 |
-|--------|------|
-| `initialize()` | 백그라운드 메시지 핸들러 등록 + 알림 권한 요청 + `flutter_local_notifications` 초기화 + Android 알림 채널 생성. `main()`에서 호출 |
-| `getToken()` | FCM 디바이스 토큰 발급. 앱 시작/로그인 시 API 서버로 전송 |
-| `setupTokenRefreshListener(onRefresh)` | Firebase 토큰 갱신 감지 → `onRefresh(token)` 콜백 실행. 인증 확인 후 `SplashNotifier`에서 호출. 기존 구독은 자동 교체 |
-| `cancelTokenRefreshListener()` | 토큰 갱신 구독 해제. 로그아웃 시 `AccountNotifier`에서 호출 |
-| `setupForegroundNotificationHandler({isEnabled})` | 포그라운드 상태에서 FCM 메시지 수신 시 `isEnabled()` 콜백이 true면 로컬 알림 표시. `SafeHomeApp.initState()`에서 설정 로드 후 호출 |
-| `setupNotificationHandlers(router)` | 알림 탭 → `/result/:jobId` 라우팅 등록. `SafeHomeApp.initState()`에서 호출 |
+## 로깅
 
-**알림 탭 처리 흐름:**
-
-```
-앱 종료 상태  → getInitialMessage()   ─┐
-앱 백그라운드 → onMessageOpenedApp    ─┤→ message.data['jobId'] → router.go('/result/:jobId')
-```
-
-**토큰 갱신 자동 재등록 흐름:**
-
-```
-Firebase가 새 토큰 발급 (앱 재설치·토큰 만료 등)
-  → onTokenRefresh 스트림
-  → setupTokenRefreshListener 콜백
-  → ApiClient.registerDevice(새 토큰)
-  → user_devices 업데이트
-```
-
-**포그라운드 알림 처리 흐름:**
-
-```
-앱 포그라운드 상태에서 FCM 메시지 수신
-  → FirebaseMessaging.onMessage
-  → isEnabled() 확인 (foregroundNotificationProvider)
-  → true: flutter_local_notifications로 시스템 알림 표시
-  → false: 무시
-```
-
-### services/logger.dart
-
-```dart
-AppLogger.info(tag, message, context: {'key': value});
-AppLogger.error(tag, message, error: e);
-```
-
-- `context:` named 인수 필수 (positional 사용 금지)
-- Sentry breadcrumb에 자동 기록
-
-### errors/app_exceptions.dart
-
-| 예외 | 발생 조건 |
-|------|----------|
-| `NetworkException` | 네트워크 연결 실패, timeout |
-| `ApiException(statusCode)` | HTTP 4xx / 5xx 응답 |
-| `ParseException` | JSON 파싱 실패 |
+로그는 오류 추적 서비스의 이력으로도 남는다. 부가 정보를 붙이면 문제 상황의 맥락이 함께 보인다.

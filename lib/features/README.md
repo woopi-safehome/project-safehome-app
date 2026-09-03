@@ -1,201 +1,75 @@
-# features — 화면별 기능 상세
+# features — 화면 계층
 
-화면 단위로 `{name}_screen.dart`(UI) + `{name}_notifier.dart`(상태) 쌍을 둔다.
-새 화면을 만들 때는 `upload/`를 참조 구현으로 본다.
+화면 하나마다 **UI와 상태를 짝으로** 둔다. 공통 인프라(`lib/core/`)에 의존하며, 그 반대는 없다.
 
-> **범위**: `lib/features/**` (+ 참조 편의를 위해 `lib/core/`·`lib/models/` 구조 포함)
-> **상위**: [App README](../../README.md) (라우트 표·플레이버) · **연관**: [`lib/core/README.md`](../core/README.md)
-> **검증**: 라우트는 `lib/app.dart`, 모델 타입은 `lib/models/deed.dart`와 대조
+> **범위**: `lib/features/**`
+> **상위**: [App README](../../README.md) · **연관**: [`lib/core/README.md`](../core/README.md)
+> **여기 없는 것**: 화면·클래스·모델 필드 목록 — 디렉터리와 코드가 답한다.
 
-## 디렉토리 구조
+---
 
-```
-lib/
-├── core/
-│   ├── config/
-│   │   └── app_config.dart        # AppFlavor, apiBaseUrl (중앙화된 baseUrl)
-│   ├── constants/
-│   │   ├── app_colors.dart
-│   │   └── app_theme.dart
-│   ├── errors/
-│   │   └── app_exceptions.dart    # NetworkException, ApiException, ParseException
-│   └── services/
-│       ├── api_client.dart        # 모든 API 호출 + apiClientProvider
-│       ├── auth_repository.dart   # 앱 시작 시 토큰 유효성 체크 + 갱신
-│       ├── fcm_service.dart       # FCM 초기화, 토큰 발급, 알림 탭 핸들러
-│       ├── token_storage.dart     # flutter_secure_storage JWT 저장
-│       └── logger.dart            # Sentry breadcrumb 연동 로거
-├── models/
-│   └── deed.dart                  # freezed 도메인 모델 (SseEvent, DeedJob 등)
-└── features/
-    ├── splash/                    # 앱 시작 시 토큰 체크 → home/login 분기
-    ├── login/                     # 카카오 로그인
-    ├── onboarding/                # 온보딩
-    ├── home/                      # 메인 화면 (업로드 CTA + 설정)
-    │   └── foreground_notification_provider.dart  # 포그라운드 알림 설정 상태 (SharedPreferences 연동)
-    ├── upload/                    # PDF 파일 선택 + 업로드
-    ├── analyzing/                 # SSE 구독 + 분석 진행 화면
-    ├── result/                    # 분석 결과 화면
-    │   └── widgets/
-    │       └── checklist_row.dart # 안전 체크리스트 행
-    └── my_page/                   # 분석 이력 목록 + 계정 관리
-        ├── account_notifier.dart  # 로그아웃(FCM 리스너 해제 포함) / 회원탈퇴 상태 관리
-        └── widgets/
-            └── safety_badge.dart  # SAFE/CAUTION/DANGER 배지
-```
+## 화면을 만드는 규칙
 
-## 라우팅
+화면과 상태를 같은 폴더에 짝으로 두고, **라우터에 등록해야 비로소 라우트가 생긴다.**
+파일만 만들고 등록을 빠뜨리면 아무 일도 일어나지 않는다.
+
+**화면은 표시에 집중한다.** 서버 호출은 공통 인프라의 클라이언트를 통하고,
+화면이 직접 통신하거나 응답을 해석하지 않는다.
+
+---
+
+## 상태의 수명을 먼저 정한다
+
+| 수명 | 언제 쓰나 |
+|---|---|
+| 앱 전역 | 로그인 여부, 계정, 사용자 설정처럼 화면을 떠나도 유지돼야 하는 것 |
+| 화면 한정 | 그 화면에서만 의미 있는 입력·진행 상태. 떠나면 버린다 |
+| 식별자별 | 같은 화면이 대상마다 다른 상태를 갖는 경우 |
+
+**잘못 고르면 조용히 샌다.** 화면 한정으로 둬야 할 것을 전역으로 두면
+이전 화면의 값이 남아 다음 진입에 보이고, 반대로 두면 화면 복귀 때 상태가 사라진다.
+
+---
+
+## 분석 진행 화면 — 이 계층에서 가장 복잡한 곳
+
+서버가 밀어 주는 진행 이벤트를 구독해 단계를 표시하고, 완료되면 결과를 받아 이동한다.
 
 ```
-/splash           → SplashScreen   (토큰 체크 → home/login 분기)
-/login            → LoginScreen
-/onboarding       → OnboardingScreen
-/                 → HomeScreen
-/upload           → UploadScreen
-/analyzing/:jobId → AnalyzingScreen
-/result/:jobId    → ResultScreen
-/my-page          → MyPageScreen
+구독 시작 → 단계 이벤트 수신 → (완료 수신) → 결과 조회 → 결과 화면
 ```
 
-## API 통신 흐름
+**완료 이벤트가 결과를 담고 있지 않다.** 완료를 받으면 결과를 **따로 조회해야** 한다.
+이 두 단계를 하나로 착각하면 결과가 비어 보인다.
 
-`ApiClient` (http 패키지) 하나로 모든 API 통신을 담당한다.
+### 최소 표시 시간 게이트
 
-| 메서드 | 엔드포인트 | 설명 |
-|--------|-----------|------|
-| `login()` | `POST /api/auth/kakao` | 카카오 액세스 토큰 → JWT 발급 |
-| `registerDevice()` | `POST /api/users/devices` | FCM 토큰 서버 등록 (upsert) |
-| `uploadDeed()` | `POST /api/deed/upload` | PDF 업로드 → jobId 반환 |
-| `streamJobEvents()` | `GET /api/deed/jobs/{jobId}/stream` | SSE → `Stream<SseEvent>` |
-| `getJob()` | `GET /api/deed/jobs/{jobId}` | 분석 결과 조회 |
-| `getMyJobs()` | `GET /api/deed/jobs` | 이력 목록 페이징 |
-| `withdraw()` | `DELETE /api/users/me` | 회원탈퇴 |
+단계 전환이 너무 빠르면 사용자가 무엇이 일어났는지 인지하지 못한다.
+그래서 각 단계를 **최소 시간만큼 붙잡아 두고** 이벤트를 큐로 흘린다.
 
-```
-① POST /api/deed/upload (multipart)
-     → JSON { data: { jobId } } 수신
-② GET  /api/deed/jobs/{jobId}/stream (SSE)
-     → SseEvent 스트리밍
-     → COMPLETED 수신 시 → ③
-③ GET  /api/deed/jobs/{jobId}
-     → DeedJob 전체 결과 fetch → Result 화면 이동
-```
+> 이 지연은 **의도된 것**이다. 진행이 느려 보인다고 제거하면 화면이 깜빡이며 넘어간다.
+> 서버가 실제로 얼마나 걸렸는지와 화면 표시가 일치하지 않는 이유이기도 하다.
 
-> `result` 필드는 `@JsonRawValue`로 String 직렬화되므로 `getJob()` 내부에서 이중 파싱 처리.
+### 끝나는 경우가 셋이다
 
-## FCM 푸시 알림 흐름
+정상 완료, 실패 이벤트, **스트림의 비정상 종료**. 세 번째를 빼먹으면
+연결이 끊겼을 때 **화면이 영원히 진행 중으로 남는다.** 재시도 경로를 둔다.
 
-### 디바이스 등록
-```
-앱 시작 (SplashNotifier.checkAuth — 토큰 유효)
-로그인 성공 (LoginNotifier.loginWithKakao)
-  ↓ FcmService.getToken()
-  ↓ ApiClient.registerDevice(fcmToken)
-  → POST /api/users/devices → user_devices 테이블 upsert
-```
+---
 
-### 토큰 갱신 자동 재등록
-```
-인증 확인 후 SplashNotifier.checkAuth
-  ↓ FcmService.setupTokenRefreshListener 등록
-Firebase가 새 토큰 발급 (앱 재설치·토큰 만료 등)
-  ↓ onTokenRefresh 감지
-  ↓ ApiClient.registerDevice(새 토큰)
-  → user_devices 업데이트 (만료 토큰 교체)
+## 알림과 화면의 관계
 
-로그아웃 (AccountNotifier.logout)
-  ↓ FcmService.cancelTokenRefreshListener()
-  → 구독 해제
-```
+**포그라운드 알림은 시스템이 자동으로 띄우지 않는다.** 앱이 직접 표시하며, 사용자가 끌 수 있다.
+이 설정은 앱을 껐다 켜도 유지돼야 하므로 로컬에 저장하고 시작 시 불러온다.
 
-### 만료 토큰 처리
-```
-pigeon → FCM 발송 시 UNREGISTERED 수신
-  ↓ pigeon: 400 TOKEN_UNREGISTERED 반환
-  ↓ safehome-api PigeonNotificationAdapter: 토큰 감지
-  → user_devices에서 해당 토큰 삭제 (다음 발급 토큰으로 자동 교체됨)
-```
+**알림을 눌러 들어오는 경로는 앱 상태에 따라 다르다.** 종료 상태와 백그라운드 상태의 처리가 각각 있으며,
+둘 중 하나만 붙이면 **한쪽 상황에서만 화면 이동이 안 된다.**
 
-### 분석 완료 알림
-```
-API 서버 분석 완료 (AnalysisAsyncProcessor — COMPLETED)
-  ↓ user_devices에서 userId로 FCM 토큰 목록 조회
-  ↓ POST http://pigeon/api/messages/send (토큰별 호출)
-  ↓ project-pigeon → Firebase FCM 발송
-  ├── 앱 백그라운드/종료: 시스템 알림 자동 표시
-  └── 앱 포그라운드: setupForegroundNotificationHandler → 설정 ON 시 로컬 알림 표시
-```
+---
 
-### 포그라운드 알림 설정
-```
-홈 화면 AppBar 설정 아이콘(⚙) 탭
-  → _SettingsBottomSheet 표시
-  → "앱 실행 중 푸시 알림" 토글
-  → foregroundNotificationProvider.toggle()
-  → SharedPreferences 저장 + 상태 업데이트
-  → FcmService.setupForegroundNotificationHandler의 isEnabled() 콜백에 즉시 반영
-```
+## 서버가 정하는 값
 
-### 알림 탭 처리
-```
-사용자가 알림 탭
-  ↓ FcmService.setupNotificationHandlers (SafeHomeApp.initState에서 등록)
-  ├── 앱 종료 상태: getInitialMessage()
-  └── 앱 백그라운드: onMessageOpenedApp
-  ↓ message.data['jobId'] 추출
-  → router.go('/result/:jobId')
-```
+상태·단계·등급 같은 열거값은 **서버가 정의하고 앱이 따른다.** 임의로 값을 늘리거나 이름을 바꾸지 않는다.
+원본은 서버 저장소 README의 계약 절에 있다.
 
-## Riverpod 패턴
-
-| Notifier 유형 | 사용 기준 | 예시 |
-|--------------|----------|------|
-| `Notifier` | 앱 생명주기 동안 유지 | LoginNotifier, AccountNotifier, ForegroundNotificationNotifier |
-| `AutoDisposeNotifier` | 화면 이탈 시 자동 해제 | UploadNotifier, MyPageNotifier |
-| `FamilyNotifier<State, String>` | jobId 파라미터 필요 | AnalyzingNotifier, ResultNotifier |
-
-### ForegroundNotificationNotifier
-
-`features/home/foreground_notification_provider.dart`
-
-| 메서드 | 설명 |
-|--------|------|
-| `init()` | SharedPreferences에서 설정값 로드. `SafeHomeApp.initState()`에서 호출 |
-| `toggle()` | 설정 ON/OFF 전환 + SharedPreferences 저장 |
-
-**Provider**: `foregroundNotificationProvider` — `NotifierProvider<ForegroundNotificationNotifier, bool>`
-
-## AnalyzingNotifier 동작
-
-1. `_startSse(jobId)` — SSE 구독 시작, 초기 표시 단계: `pdfParsing`
-2. SSE 이벤트 수신 → `_scheduleStep()` (최소 1.5초 표시 게이트, 큐 기반)
-3. `COMPLETED` 수신 → `getJob()` 호출 → `state.job` 세팅 → `completed: true`
-4. `FAILED` / 스트림 비정상 종료 → `errorMessage` 세팅
-5. `retry()` — 상태 초기화 후 SSE 재구독
-
-## 도메인 모델 주요 타입 (lib/models/deed.dart)
-
-```dart
-enum SafetyLevel     { safe, caution, danger }
-enum JobStatus       { pending, inProgress, completed, failed }
-enum AnalysisStep    { pdfParsing, llmAnalysis, postProcessing }
-enum ChecklistStatus { good, caution, danger, unknown }
-enum LeaseType       { jeonse, wolse }
-
-class SseEvent    { jobId, status, step, message, timestamp }
-class DeedJob     { jobId, status, fileName, fileSize, step, result }
-class DeedAnalysis { isValidDeed, safetyLevel, propertyInfo, checklist, ... }
-```
-
-모델 수정 후 반드시 코드 생성:
-```bash
-dart run build_runner build --delete-conflicting-outputs
-```
-
-## Android 빌드 설정
-
-- Kotlin: `2.2.0` (android/settings.gradle.kts)
-- NDK: `27.1.12297006` (android/app/build.gradle.kts)
-- 에뮬레이터: `Pixel_6_API_36`
-- sentry_flutter 등 구버전 플러그인 호환: `android/build.gradle.kts` allprojects 블록에 languageVersion 1.9 강제 설정
-- 빌드 오류 시: `flutter clean && flutter pub get`
+직렬화 모델을 고치면 **코드 생성을 다시 돌려야 한다.** 빠뜨리면 옛 스키마로 해석해 조용히 깨진다.
