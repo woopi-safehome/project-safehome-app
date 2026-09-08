@@ -101,16 +101,21 @@ lib/
 
 ## 환경 / 플레이버
 
-| 플레이버 | 진입점 | 정의 파일 | API 대상 |
-|---------|-------|----------|---------|
-| local | `main.dart` | `dart_defines/local.json` | `http://10.0.2.2:8080` (에뮬레이터→호스트) |
-| dev | `main.dart` | `dart_defines/dev.json` | `http://devupii.store:38080` |
-| prd | `main_prd.dart` | `dart_defines/prd.json` | 운영 서버 |
+| 플레이버 | 진입점 | 정의 파일 |
+|---------|-------|----------|
+| local | `main.dart` | `dart_defines/local.json` |
+| dev | `main.dart` | `dart_defines/dev.json` |
+| prd | `main_prd.dart` | `dart_defines/prd.json` |
 
-`API_URL` 미주입 시 `AppConfig.apiBaseUrl`이 `http://10.0.2.2:8080`으로 폴백한다.
-실기기에서는 `--dart-define=API_URL=http://<서버IP>:8080`으로 덮어쓴다.
+**대상 서버 주소는 정의 파일이 갖는다.** 여기 적으면 서버가 옮겨갈 때 문서만 어긋난다.
 
-Sentry `tracesSampleRate`: prd `0.1` / 그 외 `1.0` (`AppConfig.init`).
+**주소만은 주입을 빠뜨려도 빈 값이 되지 않는다.** 코드에 에뮬레이터용 로컬 주소가 기본값으로
+박혀 있어 그쪽으로 폴백한다. 그래서 다른 값처럼 실행하자마자 실패하지 않고,
+**로컬 서버를 바라보는 채로 정상 동작한다** — 더 늦게 드러난다는 뜻이다.
+변수 목록과 기기별 주의사항 → [`dart_defines/README.md`](dart_defines/README.md)
+
+**오류 추적 표본 비율이 환경마다 다르다.** 운영은 일부만, 그 외는 전량 수집한다.
+운영에서 특정 오류가 안 보인다면 표본에서 빠졌을 가능성을 먼저 본다.
 
 ---
 
