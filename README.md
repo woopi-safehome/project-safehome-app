@@ -27,18 +27,11 @@ flutter analyze
 
 ## 최초 설정 (1회)
 
-소셜 로그인 키를 넣을 곳이 두 군데다.
+예시 파일을 복사해 값을 채우는 것으로 시작한다. 실제 값 파일은 커밋되지 않는다.
 
-| # | 위치 | 읽는 주체 |
-|:-:|------|----------|
-| 1 | 환경 정의 파일 (`*.json.example`을 복사해 사용) | Dart 런타임 |
-| 2 | 네이티브 로컬 설정 | Gradle — 인증 리다이렉트 스킴 생성 시 |
-
-```bash
-cp dart_defines/local.json.example dart_defines/local.json   # 값 입력
-```
-
-`dart_defines/*.json`은 `.gitignore` 대상이다. 변수 목록·발급처 → [`dart_defines/README.md`](dart_defines/README.md)
+**한 곳만 채우면 끝나지 않는다** — 소셜 로그인 키는 Dart 런타임이 읽는 곳과
+네이티브 빌드가 읽는 곳이 따로 있다. 무엇을 어디에 넣는지, 값이 비면 어떻게 되는지는
+[`dart_defines/README.md`](dart_defines/README.md)가 갖는다.
 
 ---
 
@@ -61,16 +54,16 @@ cp dart_defines/local.json.example dart_defines/local.json   # 값 입력
 
 ## 구조
 
-```
-lib/
-├── main.dart / main_prd.dart   # 진입점 (flavor만 다름)
-├── app.dart                    # MaterialApp.router + GoRouter 라우트 정의 + FCM 핸들러 등록
-├── core/                       # 공통 인프라 → lib/core/README.md
-│   ├── config/ constants/ errors/ services/
-├── models/deed.dart            # freezed 도메인 모델 (+ .freezed.dart / .g.dart 생성물)
-├── features/                   # 화면별 Notifier + Screen → lib/features/README.md
-└── widgets/                    # 공통 위젯 (현재 비어 있음)
-```
+`lib/` 아래는 네 갈래다.
+
+| 갈래 | 무엇이 있나 |
+|---|---|
+| 진입점 | 운영과 그 외로 나뉜다. **초기화가 진입점에 있다** — 늘리면 함께 옮겨야 한다 |
+| 앱 위젯 | 라우트 정의와 푸시 핸들러 등록. 새 화면은 여기 등록해야 라우트가 생긴다 |
+| 공통 인프라 | 설정·테마·예외·서비스 → [`lib/core/README.md`](lib/core/README.md) |
+| 화면 | 화면 하나가 폴더 하나 → [`lib/features/README.md`](lib/features/README.md) |
+
+직렬화 모델은 **코드 생성물과 짝을 이룬다.** 생성물은 커밋되지 않으므로 받아온 직후에는 없다.
 
 ---
 
@@ -101,18 +94,11 @@ lib/
 
 ## 환경 / 플레이버
 
-| 플레이버 | 진입점 | 정의 파일 |
-|---------|-------|----------|
-| local | `main.dart` | `dart_defines/local.json` |
-| dev | `main.dart` | `dart_defines/dev.json` |
-| prd | `main_prd.dart` | `dart_defines/prd.json` |
+**플레이버가 진입점을 고른다.** 운영만 진입점이 따로이고 나머지는 같은 진입점을 쓰며,
+어느 정의 파일을 주입하느냐로 갈린다. 대응 관계는 실행 스크립트가 갖는다.
 
 **대상 서버 주소는 정의 파일이 갖는다.** 여기 적으면 서버가 옮겨갈 때 문서만 어긋난다.
-
-**주소만은 주입을 빠뜨려도 빈 값이 되지 않는다.** 코드에 에뮬레이터용 로컬 주소가 기본값으로
-박혀 있어 그쪽으로 폴백한다. 그래서 다른 값처럼 실행하자마자 실패하지 않고,
-**로컬 서버를 바라보는 채로 정상 동작한다** — 더 늦게 드러난다는 뜻이다.
-변수 목록과 기기별 주의사항 → [`dart_defines/README.md`](dart_defines/README.md)
+주입을 빠뜨렸을 때 무엇이 어떻게 실패하는지 → [`dart_defines/README.md`](dart_defines/README.md)
 
 **오류 추적 표본 비율이 환경마다 다르다.** 운영은 일부만, 그 외는 전량 수집한다.
 운영에서 특정 오류가 안 보인다면 표본에서 빠졌을 가능성을 먼저 본다.
@@ -137,15 +123,15 @@ lib/
 
 저장소 전체에 걸친 선택과 근거. 계층별 판단은 각 모듈 문서가 갖는다.
 
-**진입점을 환경별로 나눴다.** 어느 환경으로 빌드하는지가 진입점에서 결정되므로,
+**운영 진입점을 따로 뒀다.** 운영으로 빌드하는지가 진입점에서 결정되므로,
 릴리스 빌드가 개발 설정을 물고 나가는 사고를 구조적으로 막는다.
 대가는 **진입점마다 초기화를 중복해서 넣어야 한다**는 것이고, 이것이 실제 함정이 된다 — [`CLAUDE.md`](CLAUDE.md) 참조.
 
 **빌드 도구 버전을 고정했다.** 일부 플러그인이 오래된 언어 버전을 선언해 최신 툴체인과 충돌한다.
 플러그인들이 따라올 때까지 유지해야 하며, 올리려면 충돌하는 플러그인을 먼저 확인한다.
 
-**공통 위젯 자리를 비워 뒀다.** 화면 사이에 재사용이 생기기 전에 미리 추상화하지 않기로 했다.
-화면 전용 위젯은 그 화면 폴더 아래 둔다.
+**공통 위젯 자리를 만들지 않았다.** 화면 사이에 재사용이 실제로 생기기 전에는 미리 추상화하지 않기로 했다.
+그때까지 위젯이 어디 사는지는 [`lib/features/README.md`](lib/features/README.md)가 갖는다.
 
 ---
 
@@ -153,7 +139,7 @@ lib/
 
 | 알고 싶은 것 | 문서 |
 |-------------|------|
-| 공통 인프라 (ApiClient·FCM·토큰·로거) | [`lib/core/README.md`](lib/core/README.md) |
-| 화면별 구조·Riverpod 패턴·FCM 흐름·모델 타입 | [`lib/features/README.md`](lib/features/README.md) |
-| 환경 변수 목록·발급처 | [`dart_defines/README.md`](dart_defines/README.md) |
+| 공통 인프라의 경계 — 서버 통신·인증 확인·푸시가 흐르는 방식 | [`lib/core/README.md`](lib/core/README.md) |
+| 화면 계층의 구성 규칙 — 상태의 수명과 분석 진행 화면의 흐름 | [`lib/features/README.md`](lib/features/README.md) |
+| 환경 값을 빌드 시점에 주입하는 방식과 그 이유 | [`dart_defines/README.md`](dart_defines/README.md) |
 | AI 작업 지침 | [`CLAUDE.md`](CLAUDE.md) |
