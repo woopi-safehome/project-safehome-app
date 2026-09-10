@@ -1,0 +1,38 @@
+name: CI (App)
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+
+jobs:
+  verify:
+    name: Analyze & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          # pubspec.lock 이 이 SDK 가 고정하는 버전들을 담고 있다. 함께 올린다.
+          flutter-version: '3.32.5'
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # 직렬화 모델의 생성물은 커밋하지 않는다. 여기서 만들어야
+      # 이어지는 분석이 실제 스키마를 보고 검사한다.
+      - name: Generate code
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Analyze
+        run: flutter analyze
+
+      - name: Test
+        run: flutter test

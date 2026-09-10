@@ -17,7 +17,11 @@
 flutter pub get
 dart run build_runner build --delete-conflicting-outputs
 flutter analyze
+flutter test
 ```
+
+**생성물이 없으면 분석이 실제 스키마를 보지 못한다.** 받아온 직후에는 코드 생성을 먼저 돌린다.
+`test/` 의 제약 테스트는 위젯도 서버도 띄우지 않고 소스만 읽는다 — CI 가 같은 것을 돌린다.
 
 실행은 `scripts/` 아래 환경별 스크립트로 한다. 환경 정의 파일을 주입해 준다.
 
