@@ -7,6 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// 전부 소스를 읽는 정적 검사다. 위젯도 서버도 띄우지 않는다.
 /// 여기 있는 규칙은 CLAUDE.md 가 산문으로 적어 두던 것이고,
 /// 셋 모두 어겨도 컴파일과 실행이 정상이라 조용히 지나간다.
+///
+/// 검사마다 대상을 하나 이상 찾았는지 먼저 본다. 찾지 못하면 아무것도 보지 않고 통과한다.
 void main() {
   String posix(FileSystemEntity e) =>
       e.path.replaceAll(Platform.pathSeparator, '/');
@@ -21,10 +23,12 @@ void main() {
     // 화면 파일만 만들어도 아무 에러가 없다. 라우트만 생기지 않는다.
     final router = File('lib/app.dart').readAsStringSync();
 
+    var screens = 0;
     final unregistered = <String>[];
     for (final file in dartFilesUnder('lib/features')) {
       final name = posix(file).split('/').last;
       if (!name.endsWith('_screen.dart')) continue;
+      screens++;
 
       // analyzing_screen.dart -> AnalyzingScreen
       final className = name
@@ -38,6 +42,9 @@ void main() {
       }
     }
 
+    expect(screens, greaterThan(0),
+        reason: '화면 파일을 하나도 찾지 못하면 아무것도 보지 않고 통과한다. 화면 파일 이름 규칙이 바뀌었다면 '
+            '이 검사도 함께 고친다 — lib/features/README.md 의 "화면을 만드는 규칙"');
     expect(unregistered, isEmpty,
         reason: '라우터에 등록되지 않은 화면이 있다. 파일만 만들면 라우트는 생기지 않는다 '
             '— lib/features/README.md 의 "화면을 만드는 규칙"');
@@ -46,11 +53,16 @@ void main() {
   test('서버 통신이 공통 인프라 바깥으로 새지 않는다', () {
     // 화면에서 직접 부르면 인증 헤더 처리와 응답 해석이 흩어지고,
     // 계약이 바뀔 때 빠뜨리는 곳이 생긴다.
-    final offenders = dartFilesUnder('lib')
+    final users = dartFilesUnder('lib')
         .where((f) => f.readAsStringSync().contains("package:http/"))
         .map(posix)
-        .where((p) => !p.startsWith('lib/core/services/'))
         .toList();
+
+    expect(users, isNotEmpty,
+        reason: 'HTTP 를 쓰는 곳을 하나도 찾지 못하면 아무것도 보지 않고 통과한다. 통신 라이브러리를 바꿨다면 '
+            '이 검사도 함께 고친다 — lib/core/README.md 의 "서버 통신 — 얇게 유지한다"');
+
+    final offenders = users.where((p) => !p.startsWith('lib/core/services/')).toList();
 
     expect(offenders, isEmpty,
         reason: 'HTTP 를 직접 부르는 곳은 lib/core/services 한 곳이어야 한다 '

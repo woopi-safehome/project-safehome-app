@@ -9,6 +9,8 @@ import 'package:flutter_test/flutter_test.dart';
 /// 문장이 코드 동작에 대해 사실인지는 보지 못한다. 그것은 CLAUDE.md 의 필수 절차가 맡는다.
 ///
 /// 검사 대상을 목록으로 적지 않고 저장소를 걸어서 찾는다. 목록은 또 하나의 사본이 되어 갈라진다.
+/// 그래서 검사마다 대상을 하나 이상 찾았는지 먼저 본다. 찾지 못하면 문제 목록이 비어
+/// 아무것도 보지 않은 채 통과한다.
 void main() {
   final root = Directory.current.absolute.uri;
   final readme = root.resolve('README.md');
@@ -118,19 +120,25 @@ void main() {
   }
 
   test('문서의 링크가 가리키는 파일이 있다', () {
-    final broken = <String>[];
+    final internal = <(Uri, String, String)>[];
     for (final doc in docs) {
       for (final m in link.allMatches(File.fromUri(doc).readAsStringSync())) {
         final target = m.group(1)!.split('#').first;
         final external = target.isEmpty ||
             ['http:', 'https:', 'mailto:'].any((p) => target.startsWith(p));
         if (external || leavesRepo(target, doc)) continue;
-        final type = FileSystemEntity.typeSync(doc.resolve(target).toFilePath());
-        if (type == FileSystemEntityType.notFound) {
-          broken.add('${rel(doc)} → ${m.group(1)}');
-        }
+        internal.add((doc, m.group(1)!, target));
       }
     }
+    expect(internal, isNotEmpty,
+        reason: '링크를 하나도 찾지 못하면 아무것도 보지 않고 통과한다 — CLAUDE.md');
+
+    final broken = internal
+        .where((l) =>
+            FileSystemEntity.typeSync(l.$1.resolve(l.$3).toFilePath()) ==
+            FileSystemEntityType.notFound)
+        .map((l) => '${rel(l.$1)} → ${l.$2}')
+        .toList();
     expect(broken, isEmpty,
         reason: '경로를 옮기면 그곳을 가리키는 문서도 함께 고친다 — CLAUDE.md');
   });
@@ -138,31 +146,36 @@ void main() {
   test('문서와 테스트에 적힌 문서 경로가 있다', () {
     final backticked = RegExp(r'`([A-Za-z0-9_./-]+\.md)`');
     final bare = RegExp(r'[A-Za-z0-9_./-]+\.md');
-    final missing = <String>[];
+    final refs = <(Uri, String, Uri?)>[];
     for (final doc in docs) {
       for (final m in backticked.allMatches(File.fromUri(doc).readAsStringSync())) {
         final ref = m.group(1)!;
-        if (!leavesRepo(ref, doc) && resolveDoc(ref, doc) == null) {
-          missing.add('${rel(doc)} → $ref');
-        }
+        if (!leavesRepo(ref, doc)) refs.add((doc, ref, doc));
       }
     }
     for (final src in testSources) {
       for (final m in bare.allMatches(File.fromUri(src).readAsStringSync())) {
         final ref = m.group(0)!;
-        if (!ref.startsWith('../') && resolveDoc(ref) == null) {
-          missing.add('${rel(src)} → $ref');
-        }
+        if (!ref.startsWith('../')) refs.add((src, ref, null));
       }
     }
+    expect(refs, isNotEmpty,
+        reason: '문서 경로를 하나도 찾지 못하면 아무것도 보지 않고 통과한다 — CLAUDE.md');
+
+    final missing = refs
+        .where((r) => resolveDoc(r.$2, r.$3) == null)
+        .map((r) => '${rel(r.$1)} → ${r.$2}')
+        .toList();
     expect(missing, isEmpty,
         reason: '문서를 옮기거나 지우면 이름을 적은 곳도 함께 고친다 — CLAUDE.md');
   });
 
   test('인용한 절이 그 문서에 있다', () {
     final problems = <String>[];
+    var examined = 0;
 
     void verify(String at, String ref, Uri? target, String section) {
+      examined++;
       if (target == null) {
         problems.add('$at → $ref 가 없다');
       } else if (!cites(target, section)) {
@@ -198,11 +211,14 @@ void main() {
         }
       }
     }
+    expect(examined, greaterThan(0),
+        reason: '인용을 하나도 찾지 못하면 아무것도 보지 않고 통과한다. 인용 형식이 바뀌었을 수 있다 — CLAUDE.md');
     expect(problems, isEmpty,
         reason: '절 이름을 바꾸면 인용한 곳도 함께 고친다 — CLAUDE.md');
   });
 
   test('계약 절은 스스로 계약임을 밝힌다', () {
+    // 앱은 계약을 제공하지 않고 서버의 계약을 따르므로, 계약 절이 없을 수 있다.
     final unmarked = <String>[];
     for (final doc in docs) {
       final lines = linesOf(doc);
@@ -222,12 +238,14 @@ void main() {
   test('스스로 문서임을 밝힌 문서는 문서 지도에 있다', () {
     final mapped = mappedDocs();
     expect(mapped, isNotNull, reason: 'README.md 에 문서 지도 절이 없다 — CLAUDE.md');
-    final unmapped = docs
+    final declared = docs
         .where((d) => d != readme)
         .where((d) => linesOf(d).take(15).any((l) => l.startsWith('> **범위**')))
-        .where((d) => !mapped!.contains(d))
-        .map(rel)
         .toList();
+    expect(declared, isNotEmpty,
+        reason: '머리글로 문서임을 밝힌 모듈 문서를 하나도 찾지 못하면 문서 지도 검사가 아무것도 보지 않는다 — CLAUDE.md');
+
+    final unmapped = declared.where((d) => !mapped!.contains(d)).map(rel).toList();
     expect(unmapped, isEmpty,
         reason: '문서를 만들면 문서 지도에 올린다. 찾아갈 길이 없는 문서는 읽히지 않는다 — CLAUDE.md');
   });
@@ -247,11 +265,19 @@ void main() {
   });
 
   test('제약 테스트는 실패 메시지에 근거 문서를 담는다', () {
+    final others = constraintTests
+        .where((u) => !u.path.endsWith('/document_constraint_test.dart'))
+        .toList();
+    expect(others, isNotEmpty,
+        reason: '이 파일 말고 제약 테스트를 찾지 못하면 근거 문서 검사가 아무것도 보지 않고 통과한다 — CLAUDE.md');
+
     final site = RegExp(r'\bexpect\(');
     final problems = <String>[];
+    var sites = 0;
     for (final file in constraintTests) {
       final source = File.fromUri(file).readAsStringSync();
       for (final m in site.allMatches(source)) {
+        sites++;
         final end = source.indexOf(');', m.start);
         final call = source.substring(m.start, end < 0 ? source.length : end);
         if (!call.contains('.md')) {
@@ -260,6 +286,8 @@ void main() {
         }
       }
     }
+    expect(sites, greaterThan(0),
+        reason: '검사 지점을 하나도 찾지 못하면 아무것도 보지 않고 통과한다. 검사 방식이 바뀌었을 수 있다 — CLAUDE.md');
     expect(problems, isEmpty,
         reason: '어긴 순간에 문서가 도착해야 한다. 주석이 아니라 실패 메시지에 적는다 — CLAUDE.md');
   });
