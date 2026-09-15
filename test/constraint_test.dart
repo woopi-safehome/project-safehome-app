@@ -39,7 +39,8 @@ void main() {
     }
 
     expect(unregistered, isEmpty,
-        reason: '라우터에 등록되지 않은 화면이 있다. 파일만 만들면 라우트는 생기지 않는다');
+        reason: '라우터에 등록되지 않은 화면이 있다. 파일만 만들면 라우트는 생기지 않는다 '
+            '— lib/features/README.md 의 "화면을 만드는 규칙"');
   });
 
   test('서버 통신이 공통 인프라 바깥으로 새지 않는다', () {
@@ -52,7 +53,8 @@ void main() {
         .toList();
 
     expect(offenders, isEmpty,
-        reason: 'HTTP 를 직접 부르는 곳은 lib/core/services 한 곳이어야 한다');
+        reason: 'HTTP 를 직접 부르는 곳은 lib/core/services 한 곳이어야 한다 '
+            '— lib/core/README.md 의 "서버 통신 — 얇게 유지한다"');
   });
 
   test('서버가 정하는 열거값이 모델 바깥에 흩어져 있지 않다', () {
@@ -67,7 +69,8 @@ void main() {
         .map((m) => m.group(1)!)
         .toSet();
 
-    expect(vocabulary, isNotEmpty, reason: '모델에서 열거값 어휘를 찾지 못했다');
+    expect(vocabulary, isNotEmpty,
+        reason: '모델에서 열거값 어휘를 찾지 못했다 — lib/features/README.md 의 "서버가 정하는 값"');
 
     final leaks = <String>[];
     for (final file in dartFilesUnder('lib')) {
@@ -80,6 +83,8 @@ void main() {
       }
     }
 
-    expect(leaks, isEmpty, reason: '서버 열거값이 모델 밖에서 문자열로 쓰이고 있다');
+    expect(leaks, isEmpty,
+        reason: '서버 열거값이 모델 밖에서 문자열로 쓰이고 있다 '
+            '— lib/features/README.md 의 "서버가 정하는 값"');
   });
 }
