@@ -52,6 +52,7 @@ class AccountNotifier extends Notifier<AccountState> {
     state = const AccountLoading();
     try {
       await ref.read(apiClientProvider).withdraw();
+      FcmService.cancelTokenRefreshListener();
       await TokenStorage.clear();
       state = const AccountDone();
     } on ApiException catch (e) {

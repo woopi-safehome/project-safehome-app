@@ -23,16 +23,7 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Install dependencies
-        run: flutter pub get
-
-      # 직렬화 모델의 생성물은 커밋하지 않는다. 여기서 만들어야
-      # 이어지는 분석이 실제 스키마를 보고 검사한다.
-      - name: Generate code
-        run: dart run build_runner build --delete-conflicting-outputs
-
-      - name: Analyze
-        run: flutter analyze
-
-      - name: Test
-        run: flutter test
+      # 로컬과 같은 파일을 실행한다 — 의존성, 코드 생성, 분석, 테스트.
+      # 명령이 다르면 로컬 통과가 CI 통과를 뜻하지 않는다.
+      - name: Verify
+        run: bash scripts/verify.sh

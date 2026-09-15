@@ -64,10 +64,16 @@ class LoginNotifier extends Notifier<LoginState> {
       );
 
       // FCM 디바이스 토큰 등록 (실패해도 로그인 흐름에 영향 없음)
+      final apiClient = ref.read(apiClientProvider);
       final fcmToken = await FcmService.getToken();
       if (fcmToken != null) {
-        await ref.read(apiClientProvider).registerDevice(fcmToken);
+        await apiClient.registerDevice(fcmToken);
       }
+
+      // 토큰은 저절로 바뀐다. 자동 로그인뿐 아니라 새로 로그인한 경우에도 갱신을 다시 등록한다.
+      FcmService.setupTokenRefreshListener((token) async {
+        await apiClient.registerDevice(token);
+      });
 
       state = LoginSuccess(isNewUser: result.isNewUser);
     } on ApiException catch (e) {
