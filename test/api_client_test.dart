@@ -6,6 +6,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:project_safehome_app/core/errors/app_exceptions.dart';
 import 'package:project_safehome_app/core/services/api_client.dart';
 
 /// 서버와 맞닿는 계층의 동작을 고정한다.
@@ -111,6 +112,67 @@ void main() {
       );
 
       await client.registerDevice('fcm-token');
+    });
+  });
+
+  group('실패 응답', () {
+    /// 서버가 봉투에 담아 보내는 실패 형태.
+    String envelope(String code, String message) =>
+        jsonEncode({'type': 'error', 'code': code, 'message': message, 'details': null});
+
+    test('업로드가 거절되면 판별 코드와 서버 문구를 들고 온다', () async {
+      // 상태 코드만 들고 가면 화면이 전부 "서버 오류"로 보여 준다.
+      // 업로드는 스트리밍 응답이라 본문을 따로 읽어야 한다 — 빼먹기 쉬운 곳이다.
+      final file = File('${Directory.systemTemp.path}/deed.pdf')..writeAsBytesSync([1, 2]);
+      final client = ApiClient(
+        client: MockClient.streaming((request, bodyStream) async {
+          final body = utf8.encode(
+            envelope('DAILY_LIMIT_EXCEEDED', '오늘 분석 가능한 횟수를 모두 사용했습니다.'),
+          );
+          return http.StreamedResponse(Stream.value(body), 429);
+        }),
+      );
+
+      final error = await client
+          .uploadDeed(file.path, 'deed.pdf', 'application/pdf')
+          .then<Object?>((_) => null, onError: (Object e) => e);
+
+      expect(error, isA<ApiException>());
+      expect((error as ApiException).code, ApiErrorCode.dailyLimitExceeded);
+      expect(error.message, '오늘 분석 가능한 횟수를 모두 사용했습니다.');
+      expect(error.statusCode, 429);
+    });
+
+    test('모르는 코드가 와도 깨지지 않는다', () async {
+      // 서버가 앱보다 먼저 배포된다. 새 코드가 와도 동작해야 한다.
+      final client = ApiClient(
+        client: MockClient((r) async => http.Response(
+              envelope('SOMETHING_NEW', '새 코드입니다.'),
+              418,
+              headers: {'content-type': 'application/json; charset=utf-8'},
+            )),
+      );
+
+      final error = await client
+          .getJob('j1')
+          .then<Object?>((_) => null, onError: (Object e) => e);
+
+      expect((error as ApiException).code, ApiErrorCode.unknown);
+      expect(error.message, '새 코드입니다.');
+    });
+
+    test('봉투가 아닌 응답은 본문을 믿지 않는다', () async {
+      // 프록시가 가로챈 HTML 이나 장애 페이지가 이 경우다.
+      final client = ApiClient(
+        client: MockClient((r) async => http.Response('<html>502</html>', 502)),
+      );
+
+      final error = await client
+          .getJob('j1')
+          .then<Object?>((_) => null, onError: (Object e) => e);
+
+      expect((error as ApiException).code, ApiErrorCode.unknown);
+      expect(error.message, 'HTTP 502');
     });
   });
 

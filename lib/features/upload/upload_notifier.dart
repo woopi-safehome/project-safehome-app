@@ -41,6 +41,16 @@ const _sentinel = Object();
 
 // ─── Notifier ─────────────────────────────────────────────────────────────────
 
+/// 서버가 거절한 이유를 사용자에게 보일 문구로 바꾼다.
+///
+/// **하루 제한은 다시 눌러도 같다.** 그래서 서버 문구에 언제 풀리는지를 덧붙인다 —
+/// 알려 주지 않으면 사용자는 계속 누른다.
+/// 그 밖의 실패는 상태 코드를 보여 준다. 사용자가 할 수 있는 일이 없고 문의에 쓰인다.
+String _messageOf(ApiException e) => switch (e.code) {
+      ApiErrorCode.dailyLimitExceeded => '${e.message}\n내일 다시 분석할 수 있습니다.',
+      _ => '서버 오류가 발생했습니다. (${e.statusCode})',
+    };
+
 class UploadNotifier extends AutoDisposeNotifier<UploadState> {
   @override
   UploadState build() => const UploadState();
@@ -84,7 +94,7 @@ class UploadNotifier extends AutoDisposeNotifier<UploadState> {
       return null;
     } on ApiException catch (e) {
       AppLogger.error(_tag, 'api error', error: e);
-      state = state.copyWith(uploading: false, errorMessage: '서버 오류가 발생했습니다. (${ e.statusCode})');
+      state = state.copyWith(uploading: false, errorMessage: _messageOf(e));
       return null;
     } catch (e) {
       AppLogger.error(_tag, 'unexpected error', error: e);

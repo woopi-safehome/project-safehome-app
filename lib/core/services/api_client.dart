@@ -25,6 +25,42 @@ class ApiClient {
     return {'Authorization': 'Bearer $token'};
   }
 
+  /// 실패 응답을 예외로 바꾼다.
+  ///
+  /// **봉투에서 판별 코드와 안내 문구를 꺼낸다.** 상태 코드만 들고 가면 화면이
+  /// 무엇이 잘못됐는지 구분하지 못해 전부 "서버 오류"로 보인다.
+  /// 봉투가 아닌 응답(프록시가 가로챈 것 등)은 본문을 믿지 않고 상태 코드만 남긴다.
+  ApiException _errorOf(http.Response response, Uri uri, {String? jobId}) =>
+      _errorOfBody(response.body, response.statusCode, uri, jobId: jobId);
+
+  /// 스트리밍 응답은 본문을 따로 읽어야 한다. 업로드와 구독이 그렇다.
+  Future<ApiException> _errorOfStream(
+    http.StreamedResponse streamed,
+    Uri uri, {
+    String? jobId,
+  }) async {
+    final body = await streamed.stream.transform(utf8.decoder).join();
+    return _errorOfBody(body, streamed.statusCode, uri, jobId: jobId);
+  }
+
+  ApiException _errorOfBody(String body, int statusCode, Uri uri, {String? jobId}) {
+    try {
+      final json = jsonDecode(body) as Map<String, dynamic>;
+      if (json['type'] == 'error') {
+        return ApiException(
+          json['message'] as String? ?? 'HTTP $statusCode',
+          statusCode,
+          uri.toString(),
+          jobId: jobId,
+          code: ApiErrorCode.from(json['code']),
+        );
+      }
+    } catch (_) {
+      // 아래 기본 형태로 떨어진다.
+    }
+    return ApiException('HTTP $statusCode', statusCode, uri.toString(), jobId: jobId);
+  }
+
   /// 카카오 로그인 → 서버 인증
   Future<({String accessToken, String refreshToken, int expiresIn, bool isNewUser})>
       login(String kakaoAccessToken) async {
@@ -44,7 +80,7 @@ class ApiClient {
     }
 
     if (response.statusCode != 200) {
-      throw ApiException('HTTP ${response.statusCode}', response.statusCode, uri.toString());
+      throw _errorOf(response, uri);
     }
 
     try {
@@ -119,11 +155,7 @@ class ApiClient {
     }
 
     if (streamed.statusCode != 200) {
-      throw ApiException(
-        'HTTP ${streamed.statusCode}',
-        streamed.statusCode,
-        uri.toString(),
-      );
+      throw await _errorOfStream(streamed, uri);
     }
 
     try {
@@ -154,12 +186,7 @@ class ApiClient {
     }
 
     if (streamed.statusCode != 200) {
-      throw ApiException(
-        'HTTP ${streamed.statusCode}',
-        streamed.statusCode,
-        uri.toString(),
-        jobId: jobId,
-      );
+      throw await _errorOfStream(streamed, uri, jobId: jobId);
     }
 
     final buffer = StringBuffer();
@@ -198,12 +225,7 @@ class ApiClient {
     }
 
     if (response.statusCode != 200) {
-      throw ApiException(
-        'HTTP ${response.statusCode}',
-        response.statusCode,
-        uri.toString(),
-        jobId: jobId,
-      );
+      throw _errorOf(response, uri, jobId: jobId);
     }
 
     try {
@@ -231,7 +253,7 @@ class ApiClient {
       throw NetworkException('서버에 연결할 수 없습니다.', uri.toString(), cause: e);
     }
     if (response.statusCode != 200) {
-      throw ApiException('HTTP ${response.statusCode}', response.statusCode, uri.toString());
+      throw _errorOf(response, uri);
     }
   }
 
@@ -249,11 +271,7 @@ class ApiClient {
     }
 
     if (response.statusCode != 200) {
-      throw ApiException(
-        'HTTP ${response.statusCode}',
-        response.statusCode,
-        uri.toString(),
-      );
+      throw _errorOf(response, uri);
     }
 
     try {

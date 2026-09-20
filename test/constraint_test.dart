@@ -100,19 +100,27 @@ void main() {
     //
     // 검사할 어휘를 여기 적지 않고 모델 파일에서 뽑는다. 적어 두면 그 목록이
     // 또 하나의 사본이 되어 갈라진다.
-    final model = File('lib/models/deed.dart').readAsStringSync();
-    final vocabulary = RegExp("'([A-Z][A-Z_]{2,})'")
-        .allMatches(model)
-        .map((m) => m.group(1)!)
+    //
+    // 정의처가 하나가 아니다 — 응답 값은 모델이, 에러 코드는 예외 타입이 갖는다.
+    // 한 곳만 읽으면 나머지 어휘는 검사 대상에서 빠져 조용히 새어 나간다.
+    const definitions = [
+      'lib/models/deed.dart',
+      'lib/core/errors/app_exceptions.dart',
+    ];
+
+    final vocabulary = definitions
+        .expand((p) => RegExp("'([A-Z][A-Z_]{2,})'")
+            .allMatches(File(p).readAsStringSync())
+            .map((m) => m.group(1)!))
         .toSet();
 
     expect(vocabulary, isNotEmpty,
-        reason: '모델에서 열거값 어휘를 찾지 못했다 — lib/features/README.md 의 "서버가 정하는 값"');
+        reason: '정의처에서 열거값 어휘를 찾지 못했다 — lib/features/README.md 의 "서버가 정하는 값"');
 
     final leaks = <String>[];
     for (final file in dartFilesUnder('lib')) {
       final path = posix(file);
-      if (path.startsWith('lib/models/')) continue;
+      if (path.startsWith('lib/models/') || definitions.contains(path)) continue;
 
       final source = file.readAsStringSync();
       for (final value in vocabulary) {
