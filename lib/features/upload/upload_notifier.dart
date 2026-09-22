@@ -45,9 +45,14 @@ const _sentinel = Object();
 ///
 /// **하루 제한은 다시 눌러도 같다.** 그래서 서버 문구에 언제 풀리는지를 덧붙인다 —
 /// 알려 주지 않으면 사용자는 계속 누른다.
+///
+/// **파일이 너무 큰 것도 사용자가 할 일이 있는 경우다.** 기본 분기로 떨어뜨리면
+/// "서버 오류가 발생했습니다. (413)" 가 나가, 고칠 수 있는 일을 서버 잘못처럼 보이게 한다.
+///
 /// 그 밖의 실패는 상태 코드를 보여 준다. 사용자가 할 수 있는 일이 없고 문의에 쓰인다.
 String _messageOf(ApiException e) => switch (e.code) {
       ApiErrorCode.dailyLimitExceeded => '${e.message}\n내일 다시 분석할 수 있습니다.',
+      ApiErrorCode.fileTooLarge => '${e.message}\n더 작은 파일로 다시 시도해 주세요.',
       _ => '서버 오류가 발생했습니다. (${e.statusCode})',
     };
 

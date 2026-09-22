@@ -20,6 +20,7 @@ enum ApiErrorCode {
   forbidden('FORBIDDEN'),
   notFound('NOT_FOUND'),
   dailyLimitExceeded('DAILY_LIMIT_EXCEEDED'),
+  fileTooLarge('FILE_TOO_LARGE'),
   kakaoApiError('KAKAO_API_ERROR'),
   internalServerError('INTERNAL_SERVER_ERROR'),
   unknown('');
